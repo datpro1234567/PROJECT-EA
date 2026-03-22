@@ -38,11 +38,11 @@
   background-color: rgb(231, 183, 112);
   color:black;
 }
-#buttonForgotPassword
+#buttonChangePassword
 {
   position: absolute;
   top:283px;
-  left: 379px;
+  left: 370px;
   background-color: rgb(231, 183, 112);
   color:black;
 }
