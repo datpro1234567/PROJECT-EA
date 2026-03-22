@@ -1,4 +1,5 @@
 import {useState, usestate} from "react"
+import "../src/App.css"
 
 export default function App()
 {
@@ -17,11 +18,19 @@ export default function App()
   console.log(name, email)
   return(
     <div>
-      <input placeholder="Enter your user name here: " onChange={handleName}></input>
-      <input placeholder="Enter your password here: " onChange={handlePassWord}></input>
-      <button>Sign in</button>
-      <button>Sign up</button>
-      <button>forgot password</button>
+      <div id="body">
+        <input placeholder="Enter your user name here: " onChange={handleName} id="inputName"></input>
+        <input placeholder="Enter your password here: " onChange={handlePassWord} id="inputEmail"></input>
+        <button id = "buttonSignIn">Sign in</button>
+        <button id = "buttonSignUp">Sign up</button>
+        <button id = "buttonForgotPassword">forgot password</button>
+      </div>
+
+      <div id="keyIcon">
+        <div className="shaftKey"></div>
+        <div className="headKey"></div>
+        <div className="teethKey"></div>
+      </div>
     </div>
   )
 }
