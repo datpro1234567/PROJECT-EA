@@ -69,5 +69,3 @@ export default function App()
   
   return content
 }
-
-// rename forgot password to change password
