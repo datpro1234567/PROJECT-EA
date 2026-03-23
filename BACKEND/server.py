@@ -30,8 +30,9 @@ def home():
 @server.route("/submit",  methods = ["POST"])
 def submit():
     data = request.json
-    userName = data.get("userName")
+    name = data.get("name")
     password = data.get("password")
+    print(request.data)
 
     con = sqlite3.connect("users.db")
     cursor = con.cursor()
@@ -40,7 +41,7 @@ def submit():
         INSERT INTO user (name,password)
         VALUES (?, ?)
         """,
-        (userName,password)
+        (name,password)
     )
     con.commit()
     con.close()
@@ -50,4 +51,4 @@ def submit():
 
 server.run(debug = True)
 
-# import CORS to allow client request through cross origin, request to get the incoming http request from client, use jsonfiy to convert the string then reponse the client
+#change userName var to name

@@ -20,6 +20,19 @@ export default function App()
     setMode(e.target.value)
   }
 
+  async function handleSubmit()
+  {
+    const response = await fetch("http://localhost:5000/submit",
+      {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({name, password})
+      }
+    )
+    const result = await response.json()
+    console.log(result)
+  }
+
   let content
 
   switch (mode) {
@@ -44,10 +57,14 @@ export default function App()
     case "signUp":
     content = 
     <div id = "signUp">
-      <input placeholder="Create your user name: "></input>
-      <input placeholder="Create your password: "></input>
+      <input placeholder="Create your user name: " onChange={handleName}></input>
+      <input placeholder="Create your password: " onChange={handlePassWord}></input>
       <input placeholder="Confirm your password: "></input>
-      <button value="signIn" onClick={handleMode}>Create</button>
+      <button value="signIn" onClick={(e) => 
+        {handleMode(e)
+         handleSubmit()}}>
+        Create
+      </button>
     </div>
       break;
 
@@ -69,3 +86,5 @@ export default function App()
   
   return content
 }
+
+// create handlesubmit
