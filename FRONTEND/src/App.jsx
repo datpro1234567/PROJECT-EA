@@ -30,19 +30,40 @@ export default function App()
       }
     )
     const result = await response.json()
-    console.log(result)
+  }
+
+  async function handleVertify(e)
+  {
+    const response = await fetch( "http://localhost:5000/vertify",
+      {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({name,password})
+      }
+    )
+    const result = await response.json()
+    if (result.status ==="allow")
+    {
+      handleMode(e)  
+    }
   }
 
   let content
 
   switch (mode) {
+    case "home":
+      content =
+      <div>
+        <button value="signIn" onClick={handleMode}>Sign out</button>
+      </div>
+      break;
     case "signIn":
       content =
       <div id="signIn">
         <div>
           <input placeholder="Enter your user name here: " onChange={handleName} id="inputName"></input>
           <input placeholder="Enter your password here: " onChange={handlePassWord} id="inputEmail"></input>
-          <button id = "buttonSignIn">Sign in</button>
+          <button value="home" id = "buttonSignIn" onClick={(e) => handleVertify(e)}>Sign in</button>
           <button value="signUp" id = "buttonSignUp" onClick={handleMode}>Sign up</button>
           <button value = "changePassword" id = "buttonChangePassword" onClick={handleMode}>change password</button>
         </div>
@@ -81,10 +102,8 @@ export default function App()
     default:
       break;
   }
-
-  console.log(name, password)
   
   return content
 }
 
-// create handlesubmit
+// create handle vertify
