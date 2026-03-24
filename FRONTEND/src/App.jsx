@@ -12,7 +12,7 @@ export default function App()
   {
     setName(e.target.value)
   }
-  function handlePassWord(e)
+  function handlePassword(e)
   {
     setPassword(e.target.value)
   }
@@ -27,7 +27,7 @@ export default function App()
 
   async function handleSubmit()
   {
-    const response = await fetch("http://localhost:5000/submit",
+    const response = await fetch ("http://localhost:5000/submit",
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
@@ -35,6 +35,7 @@ export default function App()
       }
     )
     const result = await response.json()
+    return result
   }
 
   async function handleVertify(e)
@@ -47,19 +48,44 @@ export default function App()
       }
     )
     const result = await response.json()
-    if (result.status ==="allow")
-    {
-      handleMode(e)  
-    }
+    return result
   }
 
-  function handleSignUp(e)
+  async function handleSignIn(e)
+  {
+    const result = await handleVertify()
+    if (result.status === "allow")
+    {
+      handleMode(e)
+    }
+    setName("")
+    setPassword("")
+  }
+
+  async function handleSignUp(e)
   {
     if (password === cPassword)
     {
-      handleMode(e)
-      handleSubmit()
+      const result = await handleSubmit()
+      if (result.status === "allow")
+      {
+        handleMode(e)
+        setName("")
+      }
     }
+    setPassword("")
+    setCPassword("")
+  }
+
+  async function handleChangePassword(e)
+  {
+    const result = await handleVertify()
+    if(result.status === "allow")
+    {
+      handleMode(e)
+    }
+    setName("")
+    setPassword("")
   }
 
   let content
@@ -67,17 +93,17 @@ export default function App()
   switch (mode) {
     case "home":
       content =
-      <div>
+      <div key="home">
         <button value="signIn" onClick={handleMode}>Sign out</button>
       </div>
       break;
     case "signIn":
       content =
-      <div id="signIn">
+      <div id="signIn" key='signIn'>
         <div>
-          <input placeholder="Enter your user name here: " onChange={handleName} id="inputName"></input>
-          <input placeholder="Enter your password here: " onChange={handlePassWord} id="inputEmail"></input>
-          <button value="home" id = "buttonSignIn" onClick={(e) => handleVertify(e)}>Sign in</button>
+          <input value={name} placeholder="Enter your user name here: " onChange={handleName} id="inputName"></input>
+          <input value={password} placeholder="Enter your password here: " onChange={handlePassword} id="inputEmail"></input>
+          <button value="home" id = "buttonSignIn" onClick={(e) => handleSignIn(e)}>Sign in</button>
           <button value="signUp" id = "buttonSignUp" onClick={handleMode}>Sign up</button>
           <button value = "changePassword" id = "buttonChangePassword" onClick={handleMode}>change password</button>
         </div>
@@ -91,10 +117,10 @@ export default function App()
 
     case "signUp":
     content = 
-    <div id = "signUp">
-      <input placeholder="Create your user name: " onChange={handleName}></input>
-      <input placeholder="Create your password: " onChange={handlePassWord}></input>
-      <input placeholder="Confirm your password: " onChange={handleCPassword}></input>
+    <div id = "signUp" key="signUp">
+      <input value = {name} placeholder="Create your user name: " onChange={handleName}></input>
+      <input value = {password} placeholder="Create your password: " onChange={handlePassword}></input>
+      <input value = {cPassword} placeholder="Confirm your password: " onChange={handleCPassword}></input>
       <button value="signIn" onClick={(e) => 
         {handleSignUp(e)}}>
         Create
@@ -104,10 +130,19 @@ export default function App()
 
     case "changePassword":
       content = 
-      <div id="changePassword">
-        <input placeholder="Enter your password: "></input>
-        <input placeholder="Create your new password: "></input>
-        <input placeholder="Confirm your new password"></input>
+      <div id="changePassword" key="changePassword" >
+        <input value={name} placeholder="Enter your userName: " onChange={handleName}></input>
+        <input value={password} placeholder="Enter your password: " onChange={handlePassword}></input>
+        <button value ="changePasswordPhase2" onClick={handleChangePassword}>Confirm</button>
+      </div>  
+      
+      break;
+
+    case "changePasswordPhase2":
+      content =
+      <div key="changePasswordPhase2">
+        <input value = {password} placeholder="Create your new password: " onChange ={handlePassword}></input>
+        <input value = {cPassword} placeholder="Confirm your new password: "onChange={handleCPassword}></input>
         <button value = "signIn" onClick={handleMode}>Confirm</button>
       </div>
       break;

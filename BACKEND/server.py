@@ -37,6 +37,18 @@ def submit():
     cursor = con.cursor()
     cursor.execute(
         """
+        SELECT id
+        FROM user
+        WHERE name = ?
+        """,
+        (name,)
+    )
+    user = cursor.fetchone()
+    if user != None :
+        return jsonify({"status":"deny"})
+
+    cursor.execute(
+        """
         INSERT INTO user (name, password)
         VALUES (?, ?)
         """,
@@ -45,7 +57,7 @@ def submit():
     con.commit()
     con.close()
 
-    return jsonify({"status":"store completely"})
+    return jsonify({"status":"allow"})
 
 @server.route("/vertify", methods = ["POST"])
 def vetify():
@@ -59,9 +71,9 @@ def vetify():
         """
         SELECT id
         FROM user
-        WHERE name = ? and password = ? 
+        WHERE name = ? and password = ?
         """,
-        (name, password)
+        (name,password)
     )
     user = cursor.fetchone()
     con.close()
