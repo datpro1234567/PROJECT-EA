@@ -45,7 +45,7 @@ def submit():
     )
     user = cursor.fetchone()
     if user != None :
-        return jsonify({"status":"deny"})
+        return jsonify({"status":"failure"})
 
     cursor.execute(
         """
@@ -57,7 +57,7 @@ def submit():
     con.commit()
     con.close()
 
-    return jsonify({"status":"allow"})
+    return jsonify({"status":"success"})
 
 @server.route("/vertify", methods = ["POST"])
 def vetify():
@@ -66,12 +66,13 @@ def vetify():
     password = data.get("password")
 
     con = sqlite3.connect("users.db")
+    con.row_factory = sqlite3.Row
     cursor = con.cursor()
     cursor.execute(
         """
         SELECT id
         FROM user
-        WHERE name = ? and password = ?
+        WHERE name = ? AND password = ?
         """,
         (name,password)
     )
@@ -79,9 +80,29 @@ def vetify():
     con.close()
 
     if user != None:
-        return jsonify({"status": "allow"})
-    return jsonify({"status":"deny"})
+        return jsonify({"status": "success","id":user["id"]})
+    return jsonify({"status":"failure"})
 
+@server.route("/changePassword", methods = ["POST"])
+def changePassword():
+    data = request.json
+    id = data.get("id")
+    password = data.get("password")
+
+    con = sqlite3.connect("users.db")
+    cursor = con.cursor()
+    cursor.execute(
+        """
+        UPDATE user
+        SET password = ?
+        WHERE id = ?
+        """,
+        (password,id)
+    )
+    con.commit();
+    con.close();
+    return jsonify({"status":"success"})
+    
 
 server.run(debug = True)
 
