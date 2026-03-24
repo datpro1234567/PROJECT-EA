@@ -6,6 +6,7 @@ export default function App()
   const[mode,setMode] = useState("signIn")
   const [name, setName] = useState("")
   const [password,setPassword] = useState("")
+  const [cPassword,setCPassword] = useState("") // confirmation password
 
   function handleName(e)
   {
@@ -18,6 +19,10 @@ export default function App()
   function handleMode(e)
   {
     setMode(e.target.value)
+  }
+  function handleCPassword(e)
+  {
+    setCPassword(e.target.value)
   }
 
   async function handleSubmit()
@@ -45,6 +50,15 @@ export default function App()
     if (result.status ==="allow")
     {
       handleMode(e)  
+    }
+  }
+
+  function handleSignUp(e)
+  {
+    if (password === cPassword)
+    {
+      handleMode(e)
+      handleSubmit()
     }
   }
 
@@ -80,12 +94,11 @@ export default function App()
     <div id = "signUp">
       <input placeholder="Create your user name: " onChange={handleName}></input>
       <input placeholder="Create your password: " onChange={handlePassWord}></input>
-      <input placeholder="Confirm your password: "></input>
+      <input placeholder="Confirm your password: " onChange={handleCPassword}></input>
       <button value="signIn" onClick={(e) => 
-        {handleMode(e)
-         handleSubmit()}}>
+        {handleSignUp(e)}}>
         Create
-      </button>
+      </button> 
     </div>
       break;
 
