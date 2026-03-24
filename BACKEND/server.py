@@ -1,88 +1,26 @@
-from flask import Flask,request,jsonify
+from flask import Flask, render_template, request, redirect, session, flash, jsonify
 from flask_cors import CORS
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+import datetime
+import os
 import sqlite3
 
-server = Flask(__name__)
-CORS(server)
+app = Flask(__name__)
 
-def init_db():
-    con = sqlite3.connect("users.db")
-    cursor = con.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS user
-        (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE,
-        password TEXT
-        )
-        """
-    )
-    con.commit()
-    con.close()
+# Allow requests from frontend (Vite dev server runs on 5173)
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5173"}})
 
-init_db();
-
-@server.route("/")
-def home():
-    return "HELLO"
-
-@server.route("/submit",  methods = ["POST"])
-def submit():
-    data = request.json
-    name = data.get("name")
-    password = data.get("password")
-
-    con = sqlite3.connect("users.db")
-    cursor = con.cursor()
-    cursor.execute(
-        """
-        SELECT id
-        FROM user
-        WHERE name = ?
-        """,
-        (name,)
-    )
-    user = cursor.fetchone()
-    if user != None :
-        return jsonify({"status":"deny"})
-
-    cursor.execute(
-        """
-        INSERT INTO user (name, password)
-        VALUES (?, ?)
-        """,
-        (name,password)
-    )
-    con.commit()
-    con.close()
-
-    return jsonify({"status":"allow"})
-
-@server.route("/vertify", methods = ["POST"])
-def vetify():
-    data = request.json
-    name = data.get("name")
-    password = data.get("password")
-
-    con = sqlite3.connect("users.db")
-    cursor = con.cursor()
-    cursor.execute(
-        """
-        SELECT id
-        FROM user
-        WHERE name = ? and password = ?
-        """,
-        (name,password)
-    )
-    user = cursor.fetchone()
-    con.close()
-
-    if user != None:
-        return jsonify({"status": "allow"})
-    return jsonify({"status":"deny"})
+CERTS_DIR = "certs"
 
 
-server.run(debug = True)
+@app.route("/test", methods=["GET"])
+def health_check():
+	print("test ok")
+	return jsonify({"status": "ok", "service": "x509-backend"})
 
 #add path (/vetify)
+if __name__ == "__main__":
+	app.run(host="0.0.0.0", port=5000, debug=True)
