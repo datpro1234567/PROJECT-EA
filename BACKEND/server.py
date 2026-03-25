@@ -193,8 +193,8 @@ def home():
 def submit():
     data = request.json
     name = data.get("username")
-    # frontend gửi trường "password_hash" nhưng thực chất là mật khẩu plain text
-    password = data.get("password_hash")
+    # mật khẩu client gửi lên (plain text), sẽ được hash lại bằng bcrypt
+    password = data.get("password")
     full_name = data.get("full_name")
 
     # basic validation to prevent empty registrations
@@ -235,8 +235,8 @@ def submit():
 def vetify():
     data = request.json
     name = data.get("username")
-    # frontend gửi trường "password_hash" nhưng thực chất là mật khẩu plain text
-    password = data.get("password_hash")
+    # mật khẩu client gửi lên (plain text) để kiểm tra
+    password = data.get("password")
 
     con = sqlite3.connect("database.db")
     con.row_factory = sqlite3.Row
@@ -267,8 +267,8 @@ def vetify():
 def changePassword():
     data = request.json
     id = data.get("id")
-    # frontend gửi trường "password_hash" nhưng thực chất là mật khẩu plain text (mật khẩu mới)
-    password = data.get("password_hash")
+    # mật khẩu mới (plain text) cần đổi, sẽ được hash lại
+    password = data.get("password")
 
     hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 

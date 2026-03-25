@@ -35,7 +35,7 @@ export default function App({ initialMode = "signIn" }) {
     }
   }, [])
 
-  // Khi vào trang đăng ký, luôn reset form để không prefill dữ liệu admin
+  // Khi vào trang đăng ký, luôn reset form để không prefill dữ liệu
   useEffect(() => {
     if (initialMode === "signUp") {
       setName("")
@@ -68,7 +68,7 @@ export default function App({ initialMode = "signIn" }) {
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username: name, password_hash: password, full_name: fullName})
+        body: JSON.stringify({username: name, password: password, full_name: fullName})
       }
     )
     const result = await response.json()
@@ -81,7 +81,7 @@ export default function App({ initialMode = "signIn" }) {
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username: name, password_hash: password})
+        body: JSON.stringify({username: name, password: password})
       }
     )
     const result = await response.json()
@@ -162,7 +162,7 @@ export default function App({ initialMode = "signIn" }) {
         {
           method: "POST",
           headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({id, password_hash: password})
+          body: JSON.stringify({id, password: password})
         }
       )
       const result = await response.json()
