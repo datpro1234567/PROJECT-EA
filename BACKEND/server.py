@@ -3,6 +3,7 @@ from flask_cors import CORS
 import sqlite3
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+import bcrypt
 
 server = Flask(__name__)
 CORS(server)
@@ -192,6 +193,7 @@ def home():
 def submit():
     data = request.json
     name = data.get("username")
+    # frontend gửi trường "password_hash" nhưng thực chất là mật khẩu plain text
     password = data.get("password_hash")
     full_name = data.get("full_name")
 
@@ -214,12 +216,15 @@ def submit():
         con.close()
         return jsonify({"status":"failure"})
 
+    # hash mật khẩu trước khi lưu
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
     cursor.execute(
         """
         INSERT INTO users (username, password_hash, full_name, role)
         VALUES (?, ?, ?, 'user')
         """,
-        (name, password, full_name)
+        (name, hashed, full_name)
     )
     con.commit()
     con.close()
@@ -230,6 +235,7 @@ def submit():
 def vetify():
     data = request.json
     name = data.get("username")
+    # frontend gửi trường "password_hash" nhưng thực chất là mật khẩu plain text
     password = data.get("password_hash")
 
     con = sqlite3.connect("database.db")
@@ -237,29 +243,34 @@ def vetify():
     cursor = con.cursor()
     cursor.execute(
         """
-        SELECT id, full_name, role
+        SELECT id, full_name, role, password_hash
         FROM users
-        WHERE username = ? AND password_hash = ?
+        WHERE username = ?
         """,
-        (name,password)
+        (name,)
     )
     user = cursor.fetchone()
     con.close()
 
-    if user != None:
-        return jsonify({
-            "status": "success",
-            "id": user["id"],
-            "full_name": user["full_name"],
-            "role": user["role"],
-        })
+    if user is not None:
+        stored_hash = user["password_hash"]
+        if stored_hash and bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8")):
+            return jsonify({
+                "status": "success",
+                "id": user["id"],
+                "full_name": user["full_name"],
+                "role": user["role"],
+            })
     return jsonify({"status":"failure"})
 
 @server.route("/changePassword", methods = ["POST"])
 def changePassword():
     data = request.json
     id = data.get("id")
+    # frontend gửi trường "password_hash" nhưng thực chất là mật khẩu plain text (mật khẩu mới)
     password = data.get("password_hash")
+
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     con = sqlite3.connect("database.db")
     cursor = con.cursor()
@@ -269,7 +280,7 @@ def changePassword():
         SET password_hash = ?
         WHERE id = ?
         """,
-        (password,id)
+        (hashed, id)
     )
     con.commit();
     con.close();

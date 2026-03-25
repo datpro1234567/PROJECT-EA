@@ -14,6 +14,7 @@ export default function App({ initialMode = "signIn" }) {
   const navigate = useNavigate()
   const { id } = useParams()
 
+  // Load user info from localStorage on app initialization (?)
   useEffect(() => {
     const stored = localStorage.getItem("userInfo")
     if (stored) {
@@ -33,6 +34,16 @@ export default function App({ initialMode = "signIn" }) {
       }
     }
   }, [])
+
+  // Khi vào trang đăng ký, luôn reset form để không prefill dữ liệu admin
+  useEffect(() => {
+    if (initialMode === "signUp") {
+      setName("")
+      setFullName("")
+      setPassword("")
+      setCPassword("")
+    }
+  }, [initialMode])
 
   function handleName(e)
   {
@@ -211,90 +222,87 @@ export default function App({ initialMode = "signIn" }) {
     URL.revokeObjectURL(url);
   }
 
-  let content;
+  // Render theo từng mode, không dùng switch-case nữa
+  if (initialMode === "adminHome") {
+    if (role !== "admin") {
+      return <Navigate to="/login" replace />
+    }
 
-  switch (initialMode) {
-    case "adminHome":
-      if (role !== "admin") {
-        content = <Navigate to="/login" replace />
-      } else {
-        content = (
-          <div key="adminHome">
-            <p>Hello {fullName} (Admin)</p>
-            <button onClick={goToChangePassword}>
-              Change password
-            </button>
-            <button onClick={handleSignOut}>
-              Sign out
-            </button>
-          </div>
-        )
-      }
-      break;
-    case "home":
-      content = (
-        <div key="home">
-          <p>Hello {fullName}</p>
-          <button onClick={goToChangePassword}>
-            Change password
-          </button>
-          <button onClick={handleGenerateKey}>
-            Generate Key
-          </button>
-          <button onClick={handleSignOut}> 
-            Sign out
-          </button>
-        </div>
-      );
-      break;
-    case "signIn":
-      content = (
-        <Login
-          name={name}
-          password={password}
-          onNameChange={handleName}
-          onPasswordChange={handlePassword}
-          onSignIn={handleSignIn}
-        />
-      );
-      break;
-    case "signUp":
-      content = (
-        <Register
-          name={name}
-          fullName={fullName}
-          password={password}
-          cPassword={cPassword}
-          onNameChange={handleName}
-          onFullNameChange={handleFullName}
-          onPasswordChange={handlePassword}
-          onCPasswordChange={handleCPassword}
-          onSignUp={handleSignUp}
-        />
-      );
-      break;
-    case "changePassword":
-    case "changePasswordPhase2":
-      content = (
-        <ForgotPassword
-          mode={initialMode}
-          name={name}
-          password={password}
-          cPassword={cPassword}
-          onNameChange={handleName}
-          onPasswordChange={handlePassword}
-          onCPasswordChange={handleCPassword}
-          onChangePassword={handleChangePassword}
-          onChangePasswordPhase2={handleChangePasswordPhase2}
-        />
-      );
-      break;
-    default:
-      content = null;
-      break;
+    return (
+      <div key="adminHome">
+        <p>Hello {fullName} (Admin)</p>
+        <button onClick={goToChangePassword}>
+          Change password
+        </button>
+        <button onClick={handleSignOut}>
+          Sign out
+        </button>
+      </div>
+    )
   }
 
-  return content;
+  if (initialMode === "home") {
+    return (
+      <div key="home">
+        <p>Hello {fullName}</p>
+        <button onClick={goToChangePassword}>
+          Change password
+        </button>
+        <button onClick={handleGenerateKey}>
+          Generate Key
+        </button>
+        <button onClick={handleSignOut}> 
+          Sign out
+        </button>
+      </div>
+    )
+  }
+
+  if (initialMode === "signIn") {
+    return (
+      <Login
+        name={name}
+        password={password}
+        onNameChange={handleName}
+        onPasswordChange={handlePassword}
+        onSignIn={handleSignIn}
+      />
+    )
+  }
+
+  if (initialMode === "signUp") {
+    return (
+      <Register
+        name={name}
+        fullName={fullName}
+        password={password}
+        cPassword={cPassword}
+        onNameChange={handleName}
+        onFullNameChange={handleFullName}
+        onPasswordChange={handlePassword}
+        onCPasswordChange={handleCPassword}
+        onSignUp={handleSignUp}
+      />
+    )
+  }
+
+  if (initialMode === "changePassword" || initialMode === "changePasswordPhase2") {
+    return (
+      <ForgotPassword
+        mode={initialMode}
+        name={name}
+        password={password}
+        cPassword={cPassword}
+        onNameChange={handleName}
+        onPasswordChange={handlePassword}
+        onCPasswordChange={handleCPassword}
+        onChangePassword={handleChangePassword}
+        onChangePasswordPhase2={handleChangePasswordPhase2}
+      />
+    )
+  }
+
+  return null;
 }
 
 // create handle vertify

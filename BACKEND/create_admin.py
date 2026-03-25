@@ -1,4 +1,5 @@
 import sqlite3
+import bcrypt
 
 
 def create_admin():
@@ -18,12 +19,16 @@ def create_admin():
         con.close()
         return
 
+    # hash mật khẩu admin bằng bcrypt trước khi lưu
+    raw_password = "admin"
+    hashed_password = bcrypt.hashpw(raw_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
     cursor.execute(
         """
         INSERT INTO users (username, password_hash, full_name, role)
         VALUES (?, ?, ?, 'admin')
         """,
-        ("admin", "admin", "Nguyễn Át Min"),
+        ("admin", hashed_password, "Nguyễn Át Min"),
     )
     con.commit()
 
