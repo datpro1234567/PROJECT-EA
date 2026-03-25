@@ -73,6 +73,8 @@ export default function App({ initialMode = "signIn" }) {
 
   async function handleSignUp(e)
   {
+    setName("")
+    setFullName("")
     if (password === cPassword)
     {
       const result = await handleSubmit()
@@ -121,7 +123,6 @@ export default function App({ initialMode = "signIn" }) {
   }
 
   function handleSignOut() {
-    setFullName("")
     navigate("/login")
   }
 
