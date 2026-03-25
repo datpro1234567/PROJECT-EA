@@ -3,6 +3,8 @@ import { useNavigate, useParams, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
+import Home from "./pages/Home";
+import AdminHome from "./pages/AdminHome";
 
 export default function App({ initialMode = "signIn" }) {
   const [name, setName] = useState("")
@@ -222,39 +224,31 @@ export default function App({ initialMode = "signIn" }) {
     URL.revokeObjectURL(url);
   }
 
-  // Render theo từng mode, không dùng switch-case nữa
   if (initialMode === "adminHome") {
     if (role !== "admin") {
       return <Navigate to="/login" replace />
     }
 
     return (
-      <div key="adminHome">
-        <p>Hello {fullName} (Admin)</p>
-        <button onClick={goToChangePassword}>
-          Change password
-        </button>
-        <button onClick={handleSignOut}>
-          Sign out
-        </button>
-      </div>
+      <AdminHome
+        fullName={fullName}
+        onChangePassword={goToChangePassword}
+        onSignOut={handleSignOut}
+      />
     )
   }
 
   if (initialMode === "home") {
+    if (!userId) {
+      return <Navigate to="/login" replace />
+    }
     return (
-      <div key="home">
-        <p>Hello {fullName}</p>
-        <button onClick={goToChangePassword}>
-          Change password
-        </button>
-        <button onClick={handleGenerateKey}>
-          Generate Key
-        </button>
-        <button onClick={handleSignOut}> 
-          Sign out
-        </button>
-      </div>
+      <Home
+        fullName={fullName}
+        onChangePassword={goToChangePassword}
+        onGenerateKey={handleGenerateKey}
+        onSignOut={handleSignOut}
+      />
     )
   }
 
