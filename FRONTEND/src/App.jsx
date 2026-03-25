@@ -1,21 +1,16 @@
-import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 
 export default function App({ initialMode = "signIn" }) {
-  const [mode, setMode] = useState(initialMode)
   const [name, setName] = useState("")
   const [fullName, setFullName] = useState("")
   const [password,setPassword] = useState("")
   const [cPassword,setCPassword] = useState("") // confirmation password
-  const id = useRef("")
   const navigate = useNavigate()
-
-  useEffect(() => {
-    setMode(initialMode)
-  }, [initialMode])
+  const { id } = useParams()
 
   function handleName(e)
   {
@@ -28,10 +23,6 @@ export default function App({ initialMode = "signIn" }) {
   function handlePassword(e)
   {
     setPassword(e.target.value)
-  }
-  function handleMode(e)
-  {
-    setMode(e.target.value)
   }
   function handleCPassword(e)
   {
@@ -64,12 +55,17 @@ export default function App({ initialMode = "signIn" }) {
     return result
   }
 
-  async function handleSignIn(e)
+  async function handleSignIn()
   {
     const result = await handleVertify()
     if (result.status === "success")
     {
-      handleMode(e)
+      if (result.full_name) {
+        setFullName(result.full_name)
+      } else {
+        setFullName(name)
+      }
+      navigate("/home")
     }
     setName("")
     setPassword("")
@@ -84,7 +80,6 @@ export default function App({ initialMode = "signIn" }) {
       {
         setName("")
         setFullName("")
-        setMode("signIn")
         navigate("/login")
       }
     }
@@ -92,19 +87,19 @@ export default function App({ initialMode = "signIn" }) {
     setCPassword("")
   }
 
-  async function handleChangePassword(e)
+  async function handleChangePassword()
   {
     const result = await handleVertify()
     if(result.status === "success")
     {
-      handleMode(e)
-      id.current=result.id
+      const userId = result.id
+      navigate(`/change-password/${userId}`)
     }
     setName("")
     setPassword("")
   }
 
-  async function handleChangePasswordPhase2(e)
+  async function handleChangePasswordPhase2()
   {
     if (password===cPassword)
     {
@@ -112,28 +107,31 @@ export default function App({ initialMode = "signIn" }) {
         {
           method: "POST",
           headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({id: id.current, password_hash: password})
+          body: JSON.stringify({id, password_hash: password})
         }
       )
       const result = await response.json()
       if(result.status === "success")
       {
-        setMode("signIn")
         navigate("/login")
       }
     }
-    id.current=""
     setPassword("")
     setCPassword("")
   }
 
+  function handleSignOut() {
+    navigate("/login")
+  }
+
   let content;
 
-  switch (mode) {
+  switch (initialMode) {
     case "home":
       content = (
         <div key="home">
-          <button value="signIn" onClick={handleMode}>
+          <p>Hello {fullName}</p>
+          <button onClick={handleSignOut}> 
             Sign out
           </button>
         </div>
@@ -147,7 +145,6 @@ export default function App({ initialMode = "signIn" }) {
           onNameChange={handleName}
           onPasswordChange={handlePassword}
           onSignIn={handleSignIn}
-          onChangeMode={handleMode}
         />
       );
       break;
@@ -170,7 +167,7 @@ export default function App({ initialMode = "signIn" }) {
     case "changePasswordPhase2":
       content = (
         <ForgotPassword
-          mode={mode}
+          mode={initialMode}
           name={name}
           password={password}
           cPassword={cPassword}

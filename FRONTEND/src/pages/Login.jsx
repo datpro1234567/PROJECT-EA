@@ -2,7 +2,7 @@ import "./Login.css";
 import "../Global.css";
 import { Link } from "react-router-dom";
 
-export default function Login({ name, password, onNameChange, onPasswordChange, onSignIn, onChangeMode }) {
+export default function Login({ name, password, onNameChange, onPasswordChange, onSignIn }) {
   return (
     <div id="signIn" key="signIn">
       <div>
