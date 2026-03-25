@@ -1,25 +1,63 @@
-import {useState, useRef} from "react"
-import "../src/App.css"
+import { useState, useEffect } from "react";
+import { useNavigate, useParams, Navigate } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import Home from "./pages/Home";
+import AdminHome from "./pages/AdminHome";
 
-export default function App()
-{
-  const[mode,setMode] = useState("signIn")
+export default function App({ initialMode = "signIn" }) {
   const [name, setName] = useState("")
+  const [fullName, setFullName] = useState("")
   const [password,setPassword] = useState("")
   const [cPassword,setCPassword] = useState("") // confirmation password
-  const id = useRef("")
+  const [userId, setUserId] = useState(null)
+  const [role, setRole] = useState(null)
+  const navigate = useNavigate()
+  const { id } = useParams()
+
+  // Load user info from localStorage on app initialization (?)
+  useEffect(() => {
+    const stored = localStorage.getItem("userInfo")
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        if (parsed.id) {
+          setUserId(parsed.id)
+        }
+        if (parsed.fullName) {
+          setFullName(parsed.fullName)
+        }
+        if (parsed.role) {
+          setRole(parsed.role)
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }, [])
+
+  // Khi vào trang đăng ký, luôn reset form để không prefill dữ liệu
+  useEffect(() => {
+    if (initialMode === "signUp") {
+      setName("")
+      setFullName("")
+      setPassword("")
+      setCPassword("")
+    }
+  }, [initialMode])
 
   function handleName(e)
   {
     setName(e.target.value)
   }
+  function handleFullName(e)
+  {
+    setFullName(e.target.value)
+  }
   function handlePassword(e)
   {
     setPassword(e.target.value)
-  }
-  function handleMode(e)
-  {
-    setMode(e.target.value)
   }
   function handleCPassword(e)
   {
@@ -32,7 +70,7 @@ export default function App()
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username: name, password_hash: password})
+        body: JSON.stringify({username: name, password: password, full_name: fullName})
       }
     )
     const result = await response.json()
@@ -45,19 +83,42 @@ export default function App()
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username: name, password_hash: password})
+        body: JSON.stringify({username: name, password: password})
       }
     )
     const result = await response.json()
     return result
   }
 
-  async function handleSignIn(e)
+  async function handleSignIn()
   {
     const result = await handleVertify()
     if (result.status === "success")
     {
-      handleMode(e)
+      if (result.id) {
+        setUserId(result.id)
+      }
+      if (result.full_name) {
+        setFullName(result.full_name)
+      } else {
+        setFullName(name)
+      }
+      if (result.role) {
+        setRole(result.role)
+      }
+
+      const userInfo = {
+        id: result.id,
+        fullName: result.full_name || name,
+        role: result.role || "user",
+      }
+      localStorage.setItem("userInfo", JSON.stringify(userInfo))
+
+      if (result.role === "admin") {
+        navigate("/admin_home")
+      } else {
+        navigate("/home")
+      }
     }
     setName("")
     setPassword("")
@@ -65,32 +126,37 @@ export default function App()
 
   async function handleSignUp(e)
   {
+    if (!fullName || !name || !password || !cPassword) {
+      alert("Please fill in all fields");
+      return;
+    }
     if (password === cPassword)
     {
       const result = await handleSubmit()
       if (result.status === "success")
       {
-        handleMode(e)
         setName("")
+        setFullName("")
+        navigate("/login")
       }
     }
     setPassword("")
     setCPassword("")
   }
 
-  async function handleChangePassword(e)
+  async function handleChangePassword()
   {
     const result = await handleVertify()
     if(result.status === "success")
     {
-      handleMode(e)
-      id.current=result.id
+      const userId = result.id
+      navigate(`/change-password/${userId}`)
     }
     setName("")
     setPassword("")
   }
 
-  async function handleChangePasswordPhase2(e)
+  async function handleChangePasswordPhase2()
   {
     if (password===cPassword)
     {
@@ -98,84 +164,139 @@ export default function App()
         {
           method: "POST",
           headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({id: id.current, password_hash: password})
+          body: JSON.stringify({id, password: password})
         }
       )
       const result = await response.json()
       if(result.status === "success")
       {
-        handleMode(e)
+        navigate("/login")
       }
     }
-    id.current=""
     setPassword("")
     setCPassword("")
   }
 
-  let content
-
-  switch (mode) {
-    case "home":
-      content =
-      <div key="home">
-        <button value="signIn" onClick={handleMode}>Sign out</button>
-      </div>
-      break;
-    case "signIn":
-      content =
-      <div id="signIn" key='signIn'>
-        <div>
-          <input value={name} placeholder="Enter your user name here: " onChange={handleName} id="inputName"></input>
-          <input value={password} placeholder="Enter your password here: " onChange={handlePassword} id="inputEmail"></input>
-          <button value="home" id = "buttonSignIn" onClick={(e) => handleSignIn(e)}>Sign in</button>
-          <button value="signUp" id = "buttonSignUp" onClick={handleMode}>Sign up</button>
-          <button value = "changePassword" id = "buttonChangePassword" onClick={handleMode}>change password</button>
-        </div>
-        <div id="keyIcon">
-            <div className="shaftKey"></div>
-            <div className="headKey"></div>
-            <div className="teethKey"></div>
-        </div>
-      </div>
-      break;
-
-    case "signUp":
-    content = 
-    <div id = "signUp" key="signUp">
-      <input value = {name} placeholder="Create your user name: " onChange={handleName}></input>
-      <input value = {password} placeholder="Create your password: " onChange={handlePassword}></input>
-      <input value = {cPassword} placeholder="Confirm your password: " onChange={handleCPassword}></input>
-      <button value="signIn" onClick={(e) => 
-        {handleSignUp(e)}}>
-        Create
-      </button> 
-    </div>
-      break;
-
-    case "changePassword":
-      content = 
-      <div id="changePassword" key="changePassword" >
-        <input value={name} placeholder="Enter your userName: " onChange={handleName}></input>
-        <input value={password} placeholder="Enter your password: " onChange={handlePassword}></input>
-        <button value ="changePasswordPhase2" onClick={handleChangePassword}>Confirm</button>
-      </div>  
-      
-      break;
-
-    case "changePasswordPhase2":
-      content =
-      <div key="changePasswordPhase2">
-        <input value = {password} placeholder="Create your new password: " onChange ={handlePassword}></input>
-        <input value = {cPassword} placeholder="Confirm your new password: "onChange={handleCPassword}></input>
-        <button value = "signIn" onClick={handleChangePasswordPhase2}>Confirm</button>
-      </div>
-      break;
-
-    default:
-      break;
+  function handleSignOut() {
+    setName("")
+    setFullName("")
+    setPassword("")
+    setCPassword("")
+    setUserId(null)
+    setRole(null)
+    localStorage.removeItem("userInfo")
+    navigate("/login")
   }
-  
-  return content
+
+  function goToChangePassword() {
+    setName("")
+    setPassword("")
+    navigate("/change-password")
+  }
+
+  async function handleGenerateKey() {
+    if (!userId) {
+      alert("User not found. Please login again.");
+      return;
+    }
+
+    const response = await fetch("http://localhost:5000/generate_key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    });
+
+    const result = await response.json();
+    if (result.status !== "success") {
+      alert(result.message || "Failed to generate key");
+      return;
+    }
+
+    const privateKeyPem = result.private_key_pem;
+    const blob = new Blob([privateKeyPem], { type: "application/x-pem-file" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "private_key.pem";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  if (initialMode === "adminHome") {
+    if (role !== "admin") {
+      return <Navigate to="/login" replace />
+    }
+
+    return (
+      <AdminHome
+        fullName={fullName}
+        onChangePassword={goToChangePassword}
+        onSignOut={handleSignOut}
+      />
+    )
+  }
+
+  if (initialMode === "home") {
+    if (!userId) {
+      return <Navigate to="/login" replace />
+    }
+    return (
+      <Home
+        fullName={fullName}
+        onChangePassword={goToChangePassword}
+        onGenerateKey={handleGenerateKey}
+        onSignOut={handleSignOut}
+      />
+    )
+  }
+
+  if (initialMode === "signIn") {
+    return (
+      <Login
+        name={name}
+        password={password}
+        onNameChange={handleName}
+        onPasswordChange={handlePassword}
+        onSignIn={handleSignIn}
+      />
+    )
+  }
+
+  if (initialMode === "signUp") {
+    return (
+      <Register
+        name={name}
+        fullName={fullName}
+        password={password}
+        cPassword={cPassword}
+        onNameChange={handleName}
+        onFullNameChange={handleFullName}
+        onPasswordChange={handlePassword}
+        onCPasswordChange={handleCPassword}
+        onSignUp={handleSignUp}
+      />
+    )
+  }
+
+  if (initialMode === "changePassword" || initialMode === "changePasswordPhase2") {
+    return (
+      <ForgotPassword
+        mode={initialMode}
+        name={name}
+        password={password}
+        cPassword={cPassword}
+        onNameChange={handleName}
+        onPasswordChange={handlePassword}
+        onCPasswordChange={handleCPassword}
+        onChangePassword={handleChangePassword}
+        onChangePasswordPhase2={handleChangePasswordPhase2}
+      />
+    )
+  }
+
+  return null;
 }
 
 // create handle vertify

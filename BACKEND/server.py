@@ -1,6 +1,9 @@
 from flask import Flask,request,jsonify
 from flask_cors import CORS
 import sqlite3
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+import bcrypt
 
 server = Flask(__name__)
 CORS(server)
@@ -17,6 +20,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
+        full_name TEXT,
         role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
         email TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -31,7 +35,6 @@ def init_db():
         (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
-        key_type TEXT NOT NULL,
         key_pem TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'active',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -115,11 +118,27 @@ def init_db():
         CREATE TABLE IF NOT EXISTS system_config
         (
         key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        description TEXT
+        value TEXT NOT NULL
         )
         """
     )
+
+    # chưa làm gì với cái này hết, also check gen key
+    default_configs = [
+        ("key_algorithm", "RSA"),
+        ("key_size", "2048"),
+        ("hash_algorithm", "SHA256"),
+        ("valid_days", "365"),
+        ("signature_algorithm", "sha256WithRSAEncryption"),
+    ]
+    for key, value in default_configs:
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO system_config (key, value)
+            VALUES (?, ?)
+            """,
+            (key, value),
+        )
 
     # ca_keys
     cursor.execute(
@@ -156,6 +175,16 @@ def init_db():
 
 init_db();
 
+
+def get_system_config():
+    """Load system configuration from system_config table as a dict."""
+    con = sqlite3.connect("database.db")
+    cursor = con.cursor()
+    cursor.execute("SELECT key, value FROM system_config")
+    rows = cursor.fetchall()
+    con.close()
+    return {key: value for key, value in rows}
+
 @server.route("/")
 def home():
     return "HELLO"
@@ -164,7 +193,13 @@ def home():
 def submit():
     data = request.json
     name = data.get("username")
-    password = data.get("password_hash")
+    # mật khẩu client gửi lên (plain text), sẽ được hash lại bằng bcrypt
+    password = data.get("password")
+    full_name = data.get("full_name")
+
+    # basic validation to prevent empty registrations
+    if not name or not password or not full_name:
+        return jsonify({"status": "failure", "message": "All fields are required"})
 
     con = sqlite3.connect("database.db", timeout=5)
     cursor = con.cursor()
@@ -181,12 +216,15 @@ def submit():
         con.close()
         return jsonify({"status":"failure"})
 
+    # hash mật khẩu trước khi lưu
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
     cursor.execute(
         """
-        INSERT INTO users (username, password_hash, role)
-        VALUES (?, ?, 'user')
+        INSERT INTO users (username, password_hash, full_name, role)
+        VALUES (?, ?, ?, 'user')
         """,
-        (name, password)
+        (name, hashed, full_name)
     )
     con.commit()
     con.close()
@@ -197,31 +235,42 @@ def submit():
 def vetify():
     data = request.json
     name = data.get("username")
-    password = data.get("password_hash")
+    # mật khẩu client gửi lên (plain text) để kiểm tra
+    password = data.get("password")
 
     con = sqlite3.connect("database.db")
     con.row_factory = sqlite3.Row
     cursor = con.cursor()
     cursor.execute(
         """
-        SELECT id
+        SELECT id, full_name, role, password_hash
         FROM users
-        WHERE username = ? AND password_hash = ?
+        WHERE username = ?
         """,
-        (name,password)
+        (name,)
     )
     user = cursor.fetchone()
     con.close()
 
-    if user != None:
-        return jsonify({"status": "success","id":user["id"]})
+    if user is not None:
+        stored_hash = user["password_hash"]
+        if stored_hash and bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8")):
+            return jsonify({
+                "status": "success",
+                "id": user["id"],
+                "full_name": user["full_name"],
+                "role": user["role"],
+            })
     return jsonify({"status":"failure"})
 
 @server.route("/changePassword", methods = ["POST"])
 def changePassword():
     data = request.json
     id = data.get("id")
-    password = data.get("password_hash")
+    # mật khẩu mới (plain text) cần đổi, sẽ được hash lại
+    password = data.get("password")
+
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     con = sqlite3.connect("database.db")
     cursor = con.cursor()
@@ -231,12 +280,63 @@ def changePassword():
         SET password_hash = ?
         WHERE id = ?
         """,
-        (password,id)
+        (hashed, id)
     )
     con.commit();
     con.close();
     return jsonify({"status":"success"})
-    
+
+
+@server.route("/generate_key", methods=["POST"])
+def generate_key():
+    """Generate an RSA key pair for a user, store public key, return private key PEM."""
+    data = request.json
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"status": "failure", "message": "user_id is required"}), 400
+
+    config = get_system_config()
+    key_algorithm = config.get("key_algorithm", "RSA")
+    key_size = int(config.get("key_size", "2048"))
+
+    if key_algorithm != "RSA":
+        return jsonify({"status": "failure", "message": "Unsupported key_algorithm"}), 400
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=key_size,
+    )
+
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    public_key = private_key.public_key()
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    con = sqlite3.connect("database.db")
+    cursor = con.cursor()
+    cursor.execute(
+        """
+        INSERT INTO user_keys (user_id, key_pem)
+        VALUES (?, ?)
+        """,
+        (user_id, public_pem.decode("utf-8")),
+    )
+    con.commit()
+    con.close()
+
+    return jsonify({
+        "status": "success",
+        "private_key_pem": private_pem.decode("utf-8"),
+    })
+
 
 server.run(debug = True)
 
