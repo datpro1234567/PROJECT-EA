@@ -168,6 +168,10 @@ def submit():
     password = data.get("password_hash")
     full_name = data.get("full_name")
 
+    # basic validation to prevent empty registrations
+    if not name or not password or not full_name:
+        return jsonify({"status": "failure", "message": "All fields are required"})
+
     con = sqlite3.connect("database.db", timeout=5)
     cursor = con.cursor()
     cursor.execute(

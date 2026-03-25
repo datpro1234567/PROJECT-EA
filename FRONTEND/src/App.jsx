@@ -73,8 +73,10 @@ export default function App({ initialMode = "signIn" }) {
 
   async function handleSignUp(e)
   {
-    setName("")
-    setFullName("")
+    if (!fullName || !name || !password || !cPassword) {
+      alert("Please fill in all fields");
+      return;
+    }
     if (password === cPassword)
     {
       const result = await handleSubmit()
@@ -123,7 +125,17 @@ export default function App({ initialMode = "signIn" }) {
   }
 
   function handleSignOut() {
+    setName("")
+    setFullName("")
+    setPassword("")
+    setCPassword("")
     navigate("/login")
+  }
+
+  function goToChangePassword() {
+    setName("")
+    setPassword("")
+    navigate("/change-password")
   }
 
   let content;
@@ -133,6 +145,9 @@ export default function App({ initialMode = "signIn" }) {
       content = (
         <div key="home">
           <p>Hello {fullName}</p>
+          <button onClick={goToChangePassword}>
+            Change password
+          </button>
           <button onClick={handleSignOut}> 
             Sign out
           </button>
