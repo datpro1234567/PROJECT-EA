@@ -32,7 +32,7 @@ def show_table(table_name: str) -> None:
 
 def main() -> None:
     while True:
-        print("Chọn bảng để hiển thị:")
+        print("\033c", end="")
         for idx, name in TABLES.items():
             print(f"{idx}. {name}")
         print("0. Thoát")

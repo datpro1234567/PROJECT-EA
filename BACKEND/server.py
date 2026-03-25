@@ -116,11 +116,27 @@ def init_db():
         CREATE TABLE IF NOT EXISTS system_config
         (
         key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        description TEXT
+        value TEXT NOT NULL
         )
         """
     )
+
+    # default values for system_config
+    default_configs = [
+        ("key_algorithm", "RSA"),
+        ("key_size", "2048"),
+        ("hash_algorithm", "SHA256"),
+        ("valid_days", "365"),
+        ("signature_algorithm", "sha256WithRSAEncryption"),
+    ]
+    for key, value in default_configs:
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO system_config (key, value)
+            VALUES (?, ?)
+            """,
+            (key, value),
+        )
 
     # ca_keys
     cursor.execute(
