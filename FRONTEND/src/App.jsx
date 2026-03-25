@@ -32,7 +32,7 @@ export default function App()
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({name, password})
+        body: JSON.stringify({username: name, password_hash: password})
       }
     )
     const result = await response.json()
@@ -45,7 +45,7 @@ export default function App()
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({name,password})
+        body: JSON.stringify({username: name, password_hash: password})
       }
     )
     const result = await response.json()
@@ -98,7 +98,7 @@ export default function App()
         {
           method: "POST",
           headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({id: id.current, password:password})
+          body: JSON.stringify({id: id.current, password_hash: password})
         }
       )
       const result = await response.json()
