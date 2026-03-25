@@ -1,4 +1,4 @@
-import {useState} from "react"
+import {useState, useRef} from "react"
 import "../src/App.css"
 
 export default function App()
@@ -7,6 +7,7 @@ export default function App()
   const [name, setName] = useState("")
   const [password,setPassword] = useState("")
   const [cPassword,setCPassword] = useState("") // confirmation password
+  const id = useRef("")
 
   function handleName(e)
   {
@@ -31,7 +32,7 @@ export default function App()
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({name, password})
+        body: JSON.stringify({username: name, password_hash: password})
       }
     )
     const result = await response.json()
@@ -44,7 +45,7 @@ export default function App()
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({name,password})
+        body: JSON.stringify({username: name, password_hash: password})
       }
     )
     const result = await response.json()
@@ -54,7 +55,7 @@ export default function App()
   async function handleSignIn(e)
   {
     const result = await handleVertify()
-    if (result.status === "allow")
+    if (result.status === "success")
     {
       handleMode(e)
     }
@@ -67,7 +68,7 @@ export default function App()
     if (password === cPassword)
     {
       const result = await handleSubmit()
-      if (result.status === "allow")
+      if (result.status === "success")
       {
         handleMode(e)
         setName("")
@@ -80,12 +81,35 @@ export default function App()
   async function handleChangePassword(e)
   {
     const result = await handleVertify()
-    if(result.status === "allow")
+    if(result.status === "success")
     {
       handleMode(e)
+      id.current=result.id
     }
     setName("")
     setPassword("")
+  }
+
+  async function handleChangePasswordPhase2(e)
+  {
+    if (password===cPassword)
+    {
+      const response = await fetch("http://localhost:5000/changePassword",
+        {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({id: id.current, password_hash: password})
+        }
+      )
+      const result = await response.json()
+      if(result.status === "success")
+      {
+        handleMode(e)
+      }
+    }
+    id.current=""
+    setPassword("")
+    setCPassword("")
   }
 
   let content
@@ -143,7 +167,7 @@ export default function App()
       <div key="changePasswordPhase2">
         <input value = {password} placeholder="Create your new password: " onChange ={handlePassword}></input>
         <input value = {cPassword} placeholder="Confirm your new password: "onChange={handleCPassword}></input>
-        <button value = "signIn" onClick={handleMode}>Confirm</button>
+        <button value = "signIn" onClick={handleChangePasswordPhase2}>Confirm</button>
       </div>
       break;
 
