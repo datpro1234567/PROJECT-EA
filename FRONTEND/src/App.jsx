@@ -121,6 +121,7 @@ export default function App({ initialMode = "signIn" }) {
   }
 
   function handleSignOut() {
+    setFullName("")
     navigate("/login")
   }
 
