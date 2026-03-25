@@ -17,6 +17,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
+        full_name TEXT,
         role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
         email TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -165,6 +166,7 @@ def submit():
     data = request.json
     name = data.get("username")
     password = data.get("password_hash")
+    full_name = data.get("full_name")
 
     con = sqlite3.connect("database.db", timeout=5)
     cursor = con.cursor()
@@ -183,10 +185,10 @@ def submit():
 
     cursor.execute(
         """
-        INSERT INTO users (username, password_hash, role)
-        VALUES (?, ?, 'user')
+        INSERT INTO users (username, password_hash, full_name, role)
+        VALUES (?, ?, ?, 'user')
         """,
-        (name, password)
+        (name, password, full_name)
     )
     con.commit()
     con.close()
@@ -204,7 +206,7 @@ def vetify():
     cursor = con.cursor()
     cursor.execute(
         """
-        SELECT id
+        SELECT id, full_name
         FROM users
         WHERE username = ? AND password_hash = ?
         """,
@@ -214,7 +216,7 @@ def vetify():
     con.close()
 
     if user != None:
-        return jsonify({"status": "success","id":user["id"]})
+        return jsonify({"status": "success","id":user["id"], "full_name": user["full_name"]})
     return jsonify({"status":"failure"})
 
 @server.route("/changePassword", methods = ["POST"])

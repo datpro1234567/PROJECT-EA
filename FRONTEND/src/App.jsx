@@ -35,7 +35,7 @@ export default function App({ initialMode = "signIn" }) {
       {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username: name, password_hash: password})
+        body: JSON.stringify({username: name, password_hash: password, full_name: fullName})
       }
     )
     const result = await response.json()
