@@ -237,7 +237,7 @@ def vetify():
     cursor = con.cursor()
     cursor.execute(
         """
-        SELECT id, full_name
+        SELECT id, full_name, role
         FROM users
         WHERE username = ? AND password_hash = ?
         """,
@@ -247,7 +247,12 @@ def vetify():
     con.close()
 
     if user != None:
-        return jsonify({"status": "success","id":user["id"], "full_name": user["full_name"]})
+        return jsonify({
+            "status": "success",
+            "id": user["id"],
+            "full_name": user["full_name"],
+            "role": user["role"],
+        })
     return jsonify({"status":"failure"})
 
 @server.route("/changePassword", methods = ["POST"])

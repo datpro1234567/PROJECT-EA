@@ -11,6 +11,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/login" element={<App initialMode="signIn" />} />
         <Route path="/signup" element={<App initialMode="signUp" />} />
         <Route path="/home" element={<App initialMode="home" />} />
+        <Route path="/admin_home" element={<App initialMode="adminHome" />} />
         <Route path="/change-password" element={<App initialMode="changePassword" />} />
         <Route path="/change-password/:id" element={<App initialMode="changePasswordPhase2" />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

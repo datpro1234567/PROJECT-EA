@@ -45,39 +45,3 @@
   color: black;
 }
 
-.headKey {
-  position: absolute;
-  top: 110px;
-  left: 320px;
-  background-color: gold;
-  width: 50px;
-  height: 50px;
-  border-radius: 40px;
-}
-
-.shaftKey {
-  position: absolute;
-  top: 121px;
-  left: 325px;
-  background-color: gold;
-  width: 160px;
-  height: 18px;
-}
-
-.teethKey {
-  position: absolute;
-  top: 126px;
-  left: 445px;
-  background-color: gold;
-  width: 18px;
-  height: 40px;
-}
-
-.teethKey::before {
-  content: "";
-  position: absolute;
-  left: -40px;
-  background-color: gold;
-  width: 18px;
-  height: 40px;
-}

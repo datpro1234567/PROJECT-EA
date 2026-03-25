@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -10,8 +10,29 @@ export default function App({ initialMode = "signIn" }) {
   const [password,setPassword] = useState("")
   const [cPassword,setCPassword] = useState("") // confirmation password
   const [userId, setUserId] = useState(null)
+  const [role, setRole] = useState(null)
   const navigate = useNavigate()
   const { id } = useParams()
+
+  useEffect(() => {
+    const stored = localStorage.getItem("userInfo")
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        if (parsed.id) {
+          setUserId(parsed.id)
+        }
+        if (parsed.fullName) {
+          setFullName(parsed.fullName)
+        }
+        if (parsed.role) {
+          setRole(parsed.role)
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }, [])
 
   function handleName(e)
   {
@@ -69,7 +90,22 @@ export default function App({ initialMode = "signIn" }) {
       } else {
         setFullName(name)
       }
-      navigate("/home")
+      if (result.role) {
+        setRole(result.role)
+      }
+
+      const userInfo = {
+        id: result.id,
+        fullName: result.full_name || name,
+        role: result.role || "user",
+      }
+      localStorage.setItem("userInfo", JSON.stringify(userInfo))
+
+      if (result.role === "admin") {
+        navigate("/admin_home")
+      } else {
+        navigate("/home")
+      }
     }
     setName("")
     setPassword("")
@@ -134,6 +170,8 @@ export default function App({ initialMode = "signIn" }) {
     setPassword("")
     setCPassword("")
     setUserId(null)
+    setRole(null)
+    localStorage.removeItem("userInfo")
     navigate("/login")
   }
 
@@ -176,6 +214,23 @@ export default function App({ initialMode = "signIn" }) {
   let content;
 
   switch (initialMode) {
+    case "adminHome":
+      if (role !== "admin") {
+        content = <Navigate to="/login" replace />
+      } else {
+        content = (
+          <div key="adminHome">
+            <p>Hello {fullName} (Admin)</p>
+            <button onClick={goToChangePassword}>
+              Change password
+            </button>
+            <button onClick={handleSignOut}>
+              Sign out
+            </button>
+          </div>
+        )
+      }
+      break;
     case "home":
       content = (
         <div key="home">
