@@ -1,17 +1,29 @@
-import {useState, useRef} from "react"
-import "../src/App.css"
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 
-export default function App()
-{
-  const[mode,setMode] = useState("signIn")
+export default function App({ initialMode = "signIn" }) {
+  const [mode, setMode] = useState(initialMode)
   const [name, setName] = useState("")
+  const [fullName, setFullName] = useState("")
   const [password,setPassword] = useState("")
   const [cPassword,setCPassword] = useState("") // confirmation password
   const id = useRef("")
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    setMode(initialMode)
+  }, [initialMode])
 
   function handleName(e)
   {
     setName(e.target.value)
+  }
+  function handleFullName(e)
+  {
+    setFullName(e.target.value)
   }
   function handlePassword(e)
   {
@@ -70,8 +82,10 @@ export default function App()
       const result = await handleSubmit()
       if (result.status === "success")
       {
-        handleMode(e)
         setName("")
+        setFullName("")
+        setMode("signIn")
+        navigate("/login")
       }
     }
     setPassword("")
@@ -104,7 +118,8 @@ export default function App()
       const result = await response.json()
       if(result.status === "success")
       {
-        handleMode(e)
+        setMode("signIn")
+        navigate("/login")
       }
     }
     id.current=""
@@ -112,70 +127,67 @@ export default function App()
     setCPassword("")
   }
 
-  let content
+  let content;
 
   switch (mode) {
     case "home":
-      content =
-      <div key="home">
-        <button value="signIn" onClick={handleMode}>Sign out</button>
-      </div>
+      content = (
+        <div key="home">
+          <button value="signIn" onClick={handleMode}>
+            Sign out
+          </button>
+        </div>
+      );
       break;
     case "signIn":
-      content =
-      <div id="signIn" key='signIn'>
-        <div>
-          <input value={name} placeholder="Enter your user name here: " onChange={handleName} id="inputName"></input>
-          <input value={password} placeholder="Enter your password here: " onChange={handlePassword} id="inputEmail"></input>
-          <button value="home" id = "buttonSignIn" onClick={(e) => handleSignIn(e)}>Sign in</button>
-          <button value="signUp" id = "buttonSignUp" onClick={handleMode}>Sign up</button>
-          <button value = "changePassword" id = "buttonChangePassword" onClick={handleMode}>change password</button>
-        </div>
-        <div id="keyIcon">
-            <div className="shaftKey"></div>
-            <div className="headKey"></div>
-            <div className="teethKey"></div>
-        </div>
-      </div>
+      content = (
+        <Login
+          name={name}
+          password={password}
+          onNameChange={handleName}
+          onPasswordChange={handlePassword}
+          onSignIn={handleSignIn}
+          onChangeMode={handleMode}
+        />
+      );
       break;
-
     case "signUp":
-    content = 
-    <div id = "signUp" key="signUp">
-      <input value = {name} placeholder="Create your user name: " onChange={handleName}></input>
-      <input value = {password} placeholder="Create your password: " onChange={handlePassword}></input>
-      <input value = {cPassword} placeholder="Confirm your password: " onChange={handleCPassword}></input>
-      <button value="signIn" onClick={(e) => 
-        {handleSignUp(e)}}>
-        Create
-      </button> 
-    </div>
+      content = (
+        <Register
+          name={name}
+          fullName={fullName}
+          password={password}
+          cPassword={cPassword}
+          onNameChange={handleName}
+          onFullNameChange={handleFullName}
+          onPasswordChange={handlePassword}
+          onCPasswordChange={handleCPassword}
+          onSignUp={handleSignUp}
+        />
+      );
       break;
-
     case "changePassword":
-      content = 
-      <div id="changePassword" key="changePassword" >
-        <input value={name} placeholder="Enter your userName: " onChange={handleName}></input>
-        <input value={password} placeholder="Enter your password: " onChange={handlePassword}></input>
-        <button value ="changePasswordPhase2" onClick={handleChangePassword}>Confirm</button>
-      </div>  
-      
-      break;
-
     case "changePasswordPhase2":
-      content =
-      <div key="changePasswordPhase2">
-        <input value = {password} placeholder="Create your new password: " onChange ={handlePassword}></input>
-        <input value = {cPassword} placeholder="Confirm your new password: "onChange={handleCPassword}></input>
-        <button value = "signIn" onClick={handleChangePasswordPhase2}>Confirm</button>
-      </div>
+      content = (
+        <ForgotPassword
+          mode={mode}
+          name={name}
+          password={password}
+          cPassword={cPassword}
+          onNameChange={handleName}
+          onPasswordChange={handlePassword}
+          onCPasswordChange={handleCPassword}
+          onChangePassword={handleChangePassword}
+          onChangePasswordPhase2={handleChangePasswordPhase2}
+        />
+      );
       break;
-
     default:
+      content = null;
       break;
   }
-  
-  return content
+
+  return content;
 }
 
 // create handle vertify
