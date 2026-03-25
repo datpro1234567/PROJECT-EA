@@ -1,6 +1,8 @@
 from flask import Flask,request,jsonify
 from flask_cors import CORS
 import sqlite3
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
 
 server = Flask(__name__)
 CORS(server)
@@ -32,7 +34,6 @@ def init_db():
         (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
-        key_type TEXT NOT NULL,
         key_pem TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'active',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -121,7 +122,7 @@ def init_db():
         """
     )
 
-    # default values for system_config
+    # chưa làm gì với cái này hết, also check gen key
     default_configs = [
         ("key_algorithm", "RSA"),
         ("key_size", "2048"),
@@ -172,6 +173,16 @@ def init_db():
     con.close()
 
 init_db();
+
+
+def get_system_config():
+    """Load system configuration from system_config table as a dict."""
+    con = sqlite3.connect("database.db")
+    cursor = con.cursor()
+    cursor.execute("SELECT key, value FROM system_config")
+    rows = cursor.fetchall()
+    con.close()
+    return {key: value for key, value in rows}
 
 @server.route("/")
 def home():
@@ -258,7 +269,58 @@ def changePassword():
     con.commit();
     con.close();
     return jsonify({"status":"success"})
-    
+
+
+@server.route("/generate_key", methods=["POST"])
+def generate_key():
+    """Generate an RSA key pair for a user, store public key, return private key PEM."""
+    data = request.json
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"status": "failure", "message": "user_id is required"}), 400
+
+    config = get_system_config()
+    key_algorithm = config.get("key_algorithm", "RSA")
+    key_size = int(config.get("key_size", "2048"))
+
+    if key_algorithm != "RSA":
+        return jsonify({"status": "failure", "message": "Unsupported key_algorithm"}), 400
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=key_size,
+    )
+
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    public_key = private_key.public_key()
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    con = sqlite3.connect("database.db")
+    cursor = con.cursor()
+    cursor.execute(
+        """
+        INSERT INTO user_keys (user_id, key_pem)
+        VALUES (?, ?)
+        """,
+        (user_id, public_pem.decode("utf-8")),
+    )
+    con.commit()
+    con.close()
+
+    return jsonify({
+        "status": "success",
+        "private_key_pem": private_pem.decode("utf-8"),
+    })
+
 
 server.run(debug = True)
 

@@ -9,6 +9,7 @@ export default function App({ initialMode = "signIn" }) {
   const [fullName, setFullName] = useState("")
   const [password,setPassword] = useState("")
   const [cPassword,setCPassword] = useState("") // confirmation password
+  const [userId, setUserId] = useState(null)
   const navigate = useNavigate()
   const { id } = useParams()
 
@@ -60,6 +61,9 @@ export default function App({ initialMode = "signIn" }) {
     const result = await handleVertify()
     if (result.status === "success")
     {
+      if (result.id) {
+        setUserId(result.id)
+      }
       if (result.full_name) {
         setFullName(result.full_name)
       } else {
@@ -129,6 +133,7 @@ export default function App({ initialMode = "signIn" }) {
     setFullName("")
     setPassword("")
     setCPassword("")
+    setUserId(null)
     navigate("/login")
   }
 
@@ -136,6 +141,36 @@ export default function App({ initialMode = "signIn" }) {
     setName("")
     setPassword("")
     navigate("/change-password")
+  }
+
+  async function handleGenerateKey() {
+    if (!userId) {
+      alert("User not found. Please login again.");
+      return;
+    }
+
+    const response = await fetch("http://localhost:5000/generate_key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    });
+
+    const result = await response.json();
+    if (result.status !== "success") {
+      alert(result.message || "Failed to generate key");
+      return;
+    }
+
+    const privateKeyPem = result.private_key_pem;
+    const blob = new Blob([privateKeyPem], { type: "application/x-pem-file" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "private_key.pem";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   let content;
@@ -147,6 +182,9 @@ export default function App({ initialMode = "signIn" }) {
           <p>Hello {fullName}</p>
           <button onClick={goToChangePassword}>
             Change password
+          </button>
+          <button onClick={handleGenerateKey}>
+            Generate Key
           </button>
           <button onClick={handleSignOut}> 
             Sign out
