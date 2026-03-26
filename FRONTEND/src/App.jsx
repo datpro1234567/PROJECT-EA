@@ -5,6 +5,8 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
 import AdminHome from "./pages/AdminHome";
+import { submitRegistration, verifyUser, changePassword } from "./services/authService";
+import { generateKey as generateKeyApi, createRootCAKey as createRootCAKeyApi } from "./services/keyService";
 
 export default function App({ initialMode = "signIn" }) {
   const [name, setName] = useState("")
@@ -64,35 +66,9 @@ export default function App({ initialMode = "signIn" }) {
     setCPassword(e.target.value)
   }
 
-  async function handleSubmit()
-  {
-    const response = await fetch ("http://localhost:5000/submit",
-      {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username: name, password: password, full_name: fullName})
-      }
-    )
-    const result = await response.json()
-    return result
-  }
-
-  async function handleVertify(e)
-  {
-    const response = await fetch( "http://localhost:5000/vertify",
-      {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({username: name, password: password})
-      }
-    )
-    const result = await response.json()
-    return result
-  }
-
   async function handleSignIn()
   {
-    const result = await handleVertify()
+    const result = await verifyUser({ username: name, password: password })
     if (result.status === "success")
     {
       if (result.id) {
@@ -132,7 +108,11 @@ export default function App({ initialMode = "signIn" }) {
     }
     if (password === cPassword)
     {
-      const result = await handleSubmit()
+      const result = await submitRegistration({
+        username: name,
+        password: password,
+        fullName: fullName,
+      })
       if (result.status === "success")
       {
         setName("")
@@ -146,7 +126,7 @@ export default function App({ initialMode = "signIn" }) {
 
   async function handleChangePassword()
   {
-    const result = await handleVertify()
+    const result = await verifyUser({ username: name, password: password })
     if(result.status === "success")
     {
       const userId = result.id
@@ -160,14 +140,7 @@ export default function App({ initialMode = "signIn" }) {
   {
     if (password===cPassword)
     {
-      const response = await fetch("http://localhost:5000/changePassword",
-        {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({id, password: password})
-        }
-      )
-      const result = await response.json()
+      const result = await changePassword({ id, password: password })
       if(result.status === "success")
       {
         navigate("/login")
@@ -200,13 +173,7 @@ export default function App({ initialMode = "signIn" }) {
       return;
     }
 
-    const response = await fetch("http://localhost:5000/generate_key", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId }),
-    });
-
-    const result = await response.json();
+    const result = await generateKeyApi({ userId })
     if (result.status !== "success") {
       alert(result.message || "Failed to generate key");
       return;
@@ -225,12 +192,7 @@ export default function App({ initialMode = "signIn" }) {
   }
 
   async function handleCreateRootCAKey() {
-    const response = await fetch("http://localhost:5000/create_root_ca_key", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    const result = await response.json();
+    const result = await createRootCAKeyApi()
     if (result.status !== "success") {
       alert(result.message || "Failed to create Root CA key");
       return;
