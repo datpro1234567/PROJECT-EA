@@ -1,3 +1,20 @@
+# Python bytecode
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# SQLite database file
+# database.db
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

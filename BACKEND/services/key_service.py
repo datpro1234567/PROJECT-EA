@@ -2,10 +2,12 @@ import sqlite3
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
+from database.init_db import DB_PATH
+
 
 def get_system_config() -> dict:
     """Load system configuration from system_config table as a dict."""
-    con = sqlite3.connect("database.db")
+    con = sqlite3.connect(DB_PATH)
     cursor = con.cursor()
     cursor.execute("SELECT key, value FROM system_config")
     rows = cursor.fetchall()
@@ -50,7 +52,7 @@ def generate_user_key(user_id: int) -> tuple[dict, int]:
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
 
-    con = sqlite3.connect("database.db")
+    con = sqlite3.connect(DB_PATH)
     cursor = con.cursor()
     cursor.execute(
         """
@@ -98,7 +100,7 @@ def create_root_ca_key() -> tuple[dict, int]:
         encryption_algorithm=serialization.BestAvailableEncryption(passphrase),
     )
 
-    con = sqlite3.connect("database.db")
+    con = sqlite3.connect(DB_PATH)
     cursor = con.cursor()
 
     cursor.execute(

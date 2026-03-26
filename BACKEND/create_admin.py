@@ -1,9 +1,11 @@
 import sqlite3
 import bcrypt
 
+from database.init_db import DB_PATH
+
 
 def create_admin():
-    con = sqlite3.connect("database.db")
+    con = sqlite3.connect(DB_PATH)
     cursor = con.cursor()
 
     cursor.execute(

@@ -1,6 +1,8 @@
 import sqlite3
 import bcrypt
 
+from database.init_db import DB_PATH
+
 
 def register_user(username: str, password: str, full_name: str) -> dict:
     """Handle user registration logic.
@@ -10,7 +12,7 @@ def register_user(username: str, password: str, full_name: str) -> dict:
     if not username or not password or not full_name:
         return {"status": "failure", "message": "All fields are required"}
 
-    con = sqlite3.connect("database.db", timeout=5)
+    con = sqlite3.connect(DB_PATH, timeout=5)
     cursor = con.cursor()
     cursor.execute(
         """
@@ -45,7 +47,7 @@ def verify_user(username: str, password: str) -> dict:
 
     Returns dict with status and user info on success.
     """
-    con = sqlite3.connect("database.db")
+    con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row
     cursor = con.cursor()
     cursor.execute(
@@ -75,7 +77,7 @@ def change_password(user_id: int, new_password: str) -> dict:
     """Change password for a given user id."""
     hashed = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-    con = sqlite3.connect("database.db")
+    con = sqlite3.connect(DB_PATH)
     cursor = con.cursor()
     cursor.execute(
         """
