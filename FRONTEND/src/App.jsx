@@ -1,205 +1,32 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
 import AdminHome from "./pages/AdminHome";
-import { submitRegistration, verifyUser, changePassword } from "./services/authService";
-import { generateKey as generateKeyApi, createRootCAKey as createRootCAKeyApi } from "./services/keyService";
+import { useAppLogic } from "./hooks/useAppLogic";
 
 export default function App({ initialMode = "signIn" }) {
-  const [name, setName] = useState("")
-  const [fullName, setFullName] = useState("")
-  const [password,setPassword] = useState("")
-  const [cPassword,setCPassword] = useState("") // confirmation password
-  const [userId, setUserId] = useState(null)
-  const [role, setRole] = useState(null)
-  const navigate = useNavigate()
-  const { id } = useParams()
-
-  // Load user info from localStorage on app initialization (?)
-  useEffect(() => {
-    const stored = localStorage.getItem("userInfo")
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored)
-        if (parsed.id) {
-          setUserId(parsed.id)
-        }
-        if (parsed.fullName) {
-          setFullName(parsed.fullName)
-        }
-        if (parsed.role) {
-          setRole(parsed.role)
-        }
-      } catch {
-        // ignore parse errors
-      }
-    }
-  }, [])
-
-  // Khi vào trang đăng ký, luôn reset form để không prefill dữ liệu
-  useEffect(() => {
-    if (initialMode === "signUp") {
-      setName("")
-      setFullName("")
-      setPassword("")
-      setCPassword("")
-    }
-  }, [initialMode])
-
-  function handleName(e)
-  {
-    setName(e.target.value)
-  }
-  function handleFullName(e)
-  {
-    setFullName(e.target.value)
-  }
-  function handlePassword(e)
-  {
-    setPassword(e.target.value)
-  }
-  function handleCPassword(e)
-  {
-    setCPassword(e.target.value)
-  }
-
-  async function handleSignIn()
-  {
-    const result = await verifyUser({ username: name, password: password })
-    if (result.status === "success")
-    {
-      if (result.id) {
-        setUserId(result.id)
-      }
-      if (result.full_name) {
-        setFullName(result.full_name)
-      } else {
-        setFullName(name)
-      }
-      if (result.role) {
-        setRole(result.role)
-      }
-
-      const userInfo = {
-        id: result.id,
-        fullName: result.full_name || name,
-        role: result.role || "user",
-      }
-      localStorage.setItem("userInfo", JSON.stringify(userInfo))
-
-      if (result.role === "admin") {
-        navigate("/admin_home")
-      } else {
-        navigate("/home")
-      }
-    }
-    setName("")
-    setPassword("")
-  }
-
-  async function handleSignUp(e)
-  {
-    if (!fullName || !name || !password || !cPassword) {
-      alert("Please fill in all fields");
-      return;
-    }
-    if (password === cPassword)
-    {
-      const result = await submitRegistration({
-        username: name,
-        password: password,
-        fullName: fullName,
-      })
-      if (result.status === "success")
-      {
-        setName("")
-        setFullName("")
-        navigate("/login")
-      }
-    }
-    setPassword("")
-    setCPassword("")
-  }
-
-  async function handleChangePassword()
-  {
-    const result = await verifyUser({ username: name, password: password })
-    if(result.status === "success")
-    {
-      const userId = result.id
-      navigate(`/change-password/${userId}`)
-    }
-    setName("")
-    setPassword("")
-  }
-
-  async function handleChangePasswordPhase2()
-  {
-    if (password===cPassword)
-    {
-      const result = await changePassword({ id, password: password })
-      if(result.status === "success")
-      {
-        navigate("/login")
-      }
-    }
-    setPassword("")
-    setCPassword("")
-  }
-
-  function handleSignOut() {
-    setName("")
-    setFullName("")
-    setPassword("")
-    setCPassword("")
-    setUserId(null)
-    setRole(null)
-    localStorage.removeItem("userInfo")
-    navigate("/login")
-  }
-
-  function goToChangePassword() {
-    setName("")
-    setPassword("")
-    navigate("/change-password")
-  }
-
-  async function handleGenerateKey() {
-    if (!userId) {
-      alert("User not found. Please login again.");
-      return;
-    }
-
-    const result = await generateKeyApi({ userId })
-    if (result.status !== "success") {
-      alert(result.message || "Failed to generate key");
-      return;
-    }
-
-    const privateKeyPem = result.private_key_pem;
-    const blob = new Blob([privateKeyPem], { type: "application/x-pem-file" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "private_key.pem";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-
-  async function handleCreateRootCAKey() {
-    const result = await createRootCAKeyApi()
-    if (result.status !== "success") {
-      alert(result.message || "Failed to create Root CA key");
-      return;
-    }
-
-    alert("Root CA key generated and stored successfully.");
-  }
+  const {
+    name,
+    fullName,
+    password,
+    cPassword,
+    userId,
+    role,
+    handleName,
+    handleFullName,
+    handlePassword,
+    handleCPassword,
+    handleSignIn,
+    handleSignUp,
+    handleChangePassword,
+    handleChangePasswordPhase2,
+    handleSignOut,
+    goToChangePassword,
+    handleGenerateKey,
+    handleCreateRootCAKey,
+  } = useAppLogic(initialMode)
 
   if (initialMode === "adminHome") {
     if (role !== "admin") {
