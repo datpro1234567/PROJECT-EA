@@ -224,6 +224,21 @@ export default function App({ initialMode = "signIn" }) {
     URL.revokeObjectURL(url);
   }
 
+  async function handleCreateRootCAKey() {
+    const response = await fetch("http://localhost:5000/create_root_ca_key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const result = await response.json();
+    if (result.status !== "success") {
+      alert(result.message || "Failed to create Root CA key");
+      return;
+    }
+
+    alert("Root CA key generated and stored successfully.");
+  }
+
   if (initialMode === "adminHome") {
     if (role !== "admin") {
       return <Navigate to="/login" replace />
@@ -233,6 +248,7 @@ export default function App({ initialMode = "signIn" }) {
       <AdminHome
         fullName={fullName}
         onChangePassword={goToChangePassword}
+        onCreateRootCAKey={handleCreateRootCAKey}
         onSignOut={handleSignOut}
       />
     )

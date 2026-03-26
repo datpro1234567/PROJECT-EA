@@ -148,7 +148,8 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         key_type TEXT NOT NULL,
-        key_pem TEXT NOT NULL,
+        public_key_pem TEXT NOT NULL,
+        encrypted_private_key_pem TEXT NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -184,6 +185,11 @@ def get_system_config():
     rows = cursor.fetchall()
     con.close()
     return {key: value for key, value in rows}
+
+# !!! không nên hardcode passphrase trong code, TODO: load từ environment variable hoặc secure secret manager
+
+def get_root_ca_passphrase() -> bytes:
+    return b"change_this_root_ca_passphrase"
 
 @server.route("/")
 def home():
@@ -336,6 +342,72 @@ def generate_key():
         "status": "success",
         "private_key_pem": private_pem.decode("utf-8"),
     })
+
+
+@server.route("/create_root_ca_key", methods=["POST"])
+def create_root_ca_key():
+    """Generate an encrypted RSA private key for the Root CA and store it in ca_keys.
+
+    - Key algorithm/size are taken from system_config (key_algorithm, key_size).
+    - Private key is encrypted using BestAvailableEncryption with a passphrase.
+    - The encrypted PEM is stored in ca_keys.key_pem.
+    - Marks the new key as active and deactivates previous active CA keys.
+    """
+    config = get_system_config()
+    key_algorithm = config.get("key_algorithm", "RSA")
+    key_size = int(config.get("key_size", "2048"))
+
+    if key_algorithm != "RSA":
+        return jsonify({"status": "failure", "message": "Unsupported key_algorithm for CA key"}), 400
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=key_size,
+    )
+
+    # public key PEM (không mã hóa)
+    public_key = private_key.public_key()
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    passphrase = get_root_ca_passphrase()
+    private_pem_encrypted = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(passphrase),
+    )
+
+    con = sqlite3.connect("database.db")
+    cursor = con.cursor()
+
+    # Deactivate existing active CA keys
+    cursor.execute(
+        """
+        UPDATE ca_keys
+        SET is_active = 0
+        WHERE is_active = 1
+        """
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO ca_keys (name, key_type, public_key_pem, encrypted_private_key_pem, is_active)
+        VALUES (?, ?, ?, ?, 1)
+        """,
+        (
+            "Root CA",
+            "RSA",
+            public_pem.decode("utf-8"),
+            private_pem_encrypted.decode("utf-8"),
+        ),
+    )
+
+    con.commit()
+    con.close()
+
+    return jsonify({"status": "success"})
 
 
 server.run(debug = True)
