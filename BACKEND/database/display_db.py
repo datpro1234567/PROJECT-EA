@@ -1,5 +1,7 @@
 import sqlite3
 
+from init_db import DB_PATH
+
 
 TABLES = {
     1: "users",
@@ -15,7 +17,7 @@ TABLES = {
 
 
 def show_table(table_name: str) -> None:
-    con = sqlite3.connect("database.db")
+    con = sqlite3.connect(DB_PATH)
     cursor = con.cursor()
     cursor.execute(f"SELECT * FROM {table_name}")
     rows = cursor.fetchall()
@@ -52,7 +54,7 @@ def main() -> None:
             return
 
         show_table(table_name)
-        pause = input("\nNhấn Enter để tiếp tục")
+        input("\nNhấn Enter để tiếp tục")
 
 
 if __name__ == "__main__":
