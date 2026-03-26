@@ -1,4 +1,4 @@
-import "./Login.css";
+import "./Home.css";
 import "../Global.css";
 
 export default function Home({ fullName, onChangePassword, onGenerateKey, onSignOut }) {
