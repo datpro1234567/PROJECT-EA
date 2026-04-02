@@ -59,7 +59,7 @@ def submit():
 
     return jsonify({"status":"success"})
 
-@server.route("/vertify", methods = ["POST"])
+@server.route("/verify", methods = ["POST"]) # return status and ID of element that verified
 def vetify():
     data = request.json
     name = data.get("name")
@@ -87,7 +87,7 @@ def vetify():
 def changePassword():
     data = request.json
     id = data.get("id")
-    password = data.get("password")
+    newPassword = data.get("newPassword")
 
     con = sqlite3.connect("users.db")
     cursor = con.cursor()
@@ -97,7 +97,7 @@ def changePassword():
         SET password = ?
         WHERE id = ?
         """,
-        (password,id)
+        (newPassword,id)
     )
     con.commit();
     con.close();
