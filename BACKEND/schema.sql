@@ -1,6 +1,6 @@
--- SQL Server schema for ea_db
+
 ALTER DATABASE ea_db SET MULTI_USER WITH ROLLBACK IMMEDIATE;
--- Tạo database nếu chưa có (không set SINGLE_USER để tránh khóa)
+
 IF DB_ID('ea_db') IS NULL
 BEGIN
 	CREATE DATABASE ea_db;
@@ -10,7 +10,7 @@ GO
 USE ea_db;
 GO
 
--- Xóa FOREIGN KEY cũ (nếu có) trước khi drop bảng
+-- Xóa FOREIGN KEY cũ
 IF OBJECT_ID('fk_activity_logs_user', 'F') IS NOT NULL
 	ALTER TABLE activity_logs DROP CONSTRAINT fk_activity_logs_user;
 
@@ -51,7 +51,7 @@ IF OBJECT_ID('fk_certificates_crl', 'F') IS NOT NULL
 	ALTER TABLE certificates DROP CONSTRAINT fk_certificates_crl;
 GO
 
--- Xóa các bảng cũ nếu tồn tại (theo đúng thứ tự phụ thuộc FK)
+-- Xóa các bảng cũ nếu tồn tại
 IF OBJECT_ID('dbo.activity_logs', 'U') IS NOT NULL DROP TABLE dbo.activity_logs;
 IF OBJECT_ID('dbo.uploaded_certificates', 'U') IS NOT NULL DROP TABLE dbo.uploaded_certificates;
 IF OBJECT_ID('dbo.certificate_revocation_list', 'U') IS NOT NULL DROP TABLE dbo.certificate_revocation_list;
@@ -132,6 +132,19 @@ CREATE TABLE system_settings (
 	default_key_size INT NOT NULL,
 	default_validity_days INT NOT NULL
 );
+
+-- Seed default system settings for key generation
+IF NOT EXISTS (SELECT 1 FROM system_settings WHERE id = 1)
+BEGIN
+	INSERT INTO system_settings (
+		id,
+		default_key_algorithm,
+		default_hash_algorithm,
+		default_key_size,
+		default_validity_days
+	)
+	VALUES (1, 'RSA', 'SHA256', 2048, 365);
+END;
 
 -- CERTIFICATE_REVOCATION_LIST: each generated CRL
 CREATE TABLE certificate_revocation_list (
@@ -228,3 +241,13 @@ ALTER TABLE uploaded_certificates
 ALTER TABLE activity_logs
 	ADD CONSTRAINT fk_activity_logs_user
 		FOREIGN KEY (user_id) REFERENCES users(id);
+
+
+INSERT INTO users (username, password_hash, role, email)
+VALUES (
+    'admin',
+	--Admin1
+    'scrypt:32768:8:1$CHqqcMBONJpVO7Va$f6551eb9836a282234feb71668802a5f58d0b7b176823010e83b83d1a0365a6dc8783765b6a117ded87bb77ddefeff72100d38a9bb62dffb12bc6bd82d875184',
+    'admin',
+    'admin@example.com'
+);

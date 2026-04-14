@@ -3,7 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign In</title>
+    <title>Good Web</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='tree.png') }}"
+    />
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
@@ -64,12 +69,6 @@
           </div>
 
           <div class="form-options">
-            <label class="remember-wrapper">
-              <input type="checkbox" id="remember" name="remember" />
-              <span class="checkbox-label">
-                <span class="checkmark"></span>
-                Remember me
-              </span>
             </label>
             <a href="#" class="forgot-password">Forgot password?</a>
           </div>
@@ -79,21 +78,6 @@
             <span class="btn-loader"></span>
           </button>
         </form>
-
-        <div class="divider">
-          <span>or continue with</span>
-        </div>
-
-        <div class="social-auth">
-          <button type="button" class="social-btn google-btn">
-            <span class="social-icon google-icon"></span>
-            Google
-          </button>
-          <button type="button" class="social-btn github-btn">
-            <span class="social-icon github-icon"></span>
-            GitHub
-          </button>
-        </div>
 
         <div class="signup-link">
           <p>Don't have an account? <a href="/signup">Sign up</a></p>

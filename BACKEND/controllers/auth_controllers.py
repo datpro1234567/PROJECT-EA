@@ -2,16 +2,60 @@ from flask import (
     Blueprint,
     render_template,
     request,
-    # redirect,
-    # url_for,
+    redirect,
+    url_for,
     # flash,
     session,
     jsonify,
 )
+from functools import wraps
 from services.auth_services import authenticate_user, create_user, check_user_exists
+from services.key_pair_services import generate_root_ca_key_pair
 from validators import validate_signup_data, validate_signin_data
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("auth.view_signin"))
+        return view_func(*args, **kwargs)
+
+    return wrapped_view
+
+
+@auth_bp.route("/", methods=["GET"])
+@login_required
+def home():
+    return render_template("home.html")
+
+
+@auth_bp.route("/api/admin/root-keypair", methods=["POST"])
+@login_required
+def api_generate_root_keypair():
+    if session.get("role") != "admin":
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "You do not have permission to perform this action.",
+                }
+            ),
+            403,
+        )
+
+    admin_id = session.get("user_id")
+    success, message = generate_root_ca_key_pair(admin_id)
+    status_code = 200 if success else 400
+    return jsonify({"success": success, "message": message}), status_code
+
+
+@auth_bp.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("auth.view_signin"))
 
 
 @auth_bp.route("/signin", methods=["GET"])
