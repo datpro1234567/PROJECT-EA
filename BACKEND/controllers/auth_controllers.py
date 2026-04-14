@@ -78,7 +78,12 @@ def signup():
     username = (data.get("username") or "").strip()
     email = (data.get("email") or "").strip()
     password = data.get("password") or ""
-    confirm_password = data.get("confirm_password") or ""
+    # Hỗ trợ cả "confirm_password" (snake_case) và "confirm-password" (từ form HTML)
+    confirm_password = (
+        data.get("confirm_password")
+        or data.get("confirm-password")
+        or ""
+    )
 
     is_valid, errors = validate_signup_data(username, email, password, confirm_password)
     if not is_valid:
@@ -107,6 +112,13 @@ def signup():
 
     # Create user
     success = create_user(username, email, password)
+
+    # success is None: lỗi kết nối DB
+    if success is None:
+        return (
+            jsonify({"success": False, "message": "Database connection error."}),
+            500,
+        )
 
     if success:
         return (

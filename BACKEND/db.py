@@ -1,16 +1,25 @@
 def get_db_connection():
-    import mysql.connector
-    from mysql.connector import Error
+    """Kết nối đến SQL Server (thay cho MySQL).
+
+    Yêu cầu:
+    - Cài ODBC Driver cho SQL Server (ví dụ: "ODBC Driver 18 for SQL Server").
+    - Cài thư viện pyodbc trong môi trường Python.
+
+    Chỉnh lại SERVER, UID, PWD cho đúng với máy của bạn.
+    """
+
+    import pyodbc
 
     try:
-        conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="password",
-            database="ea_db",
+        conn = pyodbc.connect(
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            "SERVER=localhost;"
+            "DATABASE=ea_db;"
+            "UID=sa;"
+            "PWD=Lubaodat5?;"
+            "TrustServerCertificate=yes;",
         )
-        if conn.is_connected():
-            return conn
-    except Error as e:
-        print(f"Error while connecting to MySQL: {e}")
+        return conn
+    except pyodbc.Error as e:
+        print(f"Error while connecting to SQL Server: {e}")
         return None
