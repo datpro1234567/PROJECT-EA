@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 
 from db import get_db_connection
 
@@ -33,31 +33,30 @@ def _load_system_settings(cursor) -> Optional[Dict]:
     return dict(zip(columns, row))
 
 
-def _encrypt_private_key_pem(private_pem: bytes) -> str:
+def _encrypt_private_key_pem(private_pem: bytes) -> bytes:
     fernet_key = os.getenv("PRIVATE_KEY_ENCRYPTION_KEY")
     if not fernet_key:
         # Fallback to storing plain text PEM (NOT recommended for production)
-        return private_pem.decode("utf-8")
+        return private_pem
 
     try:
         f = Fernet(fernet_key.encode("utf-8"))
         token = f.encrypt(private_pem)
-        return token.decode("utf-8")
+        return token
     except Exception as exc:  # noqa: F841
         # If encryption fails for any reason, fallback to plain text storage
-        return private_pem.decode("utf-8")
+        return private_pem
 
 
-def _decrypt_private_key_pem(private_encrypted: str) -> bytes:
-    """Decrypt stored private key PEM if encrypted, otherwise return raw bytes.
+def _decrypt_private_key_pem(private_encrypted) -> bytes:
 
-    The corresponding encrypt helper may store either a Fernet token or plain
-    text PEM. This function attempts Fernet decryption when the key is
-    configured; if anything fails, it falls back to treating the value as
-    plain PEM.
-    """
+    if private_encrypted is None:
+        return b""
 
-    raw_bytes = private_encrypted.encode("utf-8")
+    if isinstance(private_encrypted, str):
+        raw_bytes = private_encrypted.encode("utf-8")
+    else:
+        raw_bytes = bytes(private_encrypted)
 
     fernet_key = os.getenv("PRIVATE_KEY_ENCRYPTION_KEY")
     if not fernet_key:
@@ -189,13 +188,6 @@ def _get_hash_algorithm(settings: Dict) -> hashes.HashAlgorithm:
 
 
 def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
-    """Generate a self-signed Root CA certificate for the whole system.
-
-    This uses the active Root CA key pair (owner_type = 'root_ca') and stores
-    the certificate plus basic status / ownership information in the
-    certificates-related tables.
-    """
-
     conn = get_db_connection()
     if not conn:
         return False, "cannot connect to database"
@@ -260,12 +252,13 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
         subject = issuer = x509.Name(
             [
                 x509.NameAttribute(NameOID.COUNTRY_NAME, "VN"),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "EA System"),
-                x509.NameAttribute(NameOID.COMMON_NAME, "EA Root CA"),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Good Web"),
+                x509.NameAttribute(NameOID.COMMON_NAME, "Good Web Root CA"),
             ]
         )
 
-        # Serial number as random 64-bit integer
+        # Serial number as random 64-bit integer unique in the database
+        # !!unique 
         serial_number = x509.random_serial_number()
 
         now = datetime.utcnow()
@@ -308,7 +301,7 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
 
-        subject_dn = "CN=EA Root CA, O=EA System, C=VN"
+        subject_dn = "CN=Good Web Root CA, O=Good Web, C=VN"
         issuer_dn = subject_dn
 
         signature_algorithm_name = f"{hash_algo.name.upper()}with{algorithm}"
@@ -404,6 +397,185 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
     except Exception as exc:
         conn.rollback()
         return False, f"Error generating Root CA certificate: {exc}"
+
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        conn.close()
+
+
+def generate_user_key_pair(user_id: int, owner_type: str = "customer") -> Tuple[bool, str]:
+    if owner_type not in {"admin", "customer"}:
+        owner_type = "customer"
+
+    conn = get_db_connection()
+    if not conn:
+        return False, "cannot connect to database"
+
+    try:
+        cursor = conn.cursor()
+
+        # 1. Load system settings
+        settings = _load_system_settings(cursor)
+        if not settings:
+            return False, "System settings not configured for key generation."
+
+        algorithm = (settings.get("default_key_algorithm") or "RSA").upper()
+        key_size = settings.get("default_key_size") or 2048
+
+        # 2. Generate key pair (currently only RSA is supported)
+        if algorithm != "RSA":
+            algorithm = "RSA"
+
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=int(key_size))
+        public_key = private_key.public_key()
+
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
+        public_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+        private_encrypted = _encrypt_private_key_pem(private_pem)
+
+        # 4. Insert into key_pairs
+        cursor.execute(
+            """
+            INSERT INTO key_pairs (
+                owner_user_id,
+                owner_type,
+                public_key,
+                private_key_encrypted,
+                algorithm,
+                key_size,
+                purpose,
+                status
+            )
+            OUTPUT INSERTED.id
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                int(user_id),
+                owner_type,
+                public_pem.decode("utf-8"),
+                private_encrypted,
+                algorithm,
+                int(key_size),
+                "User key pair",
+                "active",
+            ),
+        )
+
+        new_id_row = cursor.fetchone()
+        conn.commit()
+
+        new_id = new_id_row[0] if new_id_row else None
+        msg = (
+            f"Successfully generated key pair for user (key_pairs.id = {new_id})."
+            if new_id is not None
+            else "Successfully generated key pair for user."
+        )
+        return True, msg
+
+    except Exception as exc:
+        conn.rollback()
+        return False, f"Error generating user key pair: {exc}"
+
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        conn.close()
+
+
+def get_user_key_pairs(user_id: int, owner_type: str = "customer") -> Tuple[bool, List[Dict]]:
+    """Return all key pairs for a given user and owner_type."""
+
+    if owner_type not in {"admin", "customer"}:
+        owner_type = "customer"
+
+    conn = get_db_connection()
+    if not conn:
+        return False, []
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, public_key, algorithm, key_size, status
+            FROM key_pairs
+            WHERE owner_user_id = ?
+              AND owner_type = ?
+            ORDER BY id
+            """,
+            (int(user_id), owner_type),
+        )
+
+        rows = cursor.fetchall() or []
+        columns = [col[0] for col in cursor.description]
+        data = [dict(zip(columns, row)) for row in rows]
+        return True, data
+
+    except Exception as exc:  # noqa: F841
+        return False, []
+
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        conn.close()
+
+
+def get_user_private_key_pem(
+    user_id: int,
+    key_pair_id: int,
+    owner_type: str = "customer",
+) -> Tuple[bool, object]:
+    """Load and decrypt a user's private key PEM for download.
+
+    On success returns (True, private_pem_bytes), otherwise (False, error_message).
+    """
+
+    if owner_type not in {"admin", "customer"}:
+        owner_type = "customer"
+
+    conn = get_db_connection()
+    if not conn:
+        return False, "cannot connect to database"
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT owner_user_id, owner_type, private_key_encrypted
+            FROM key_pairs
+            WHERE id = ?
+            """,
+            (int(key_pair_id),),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return False, "Key pair not found."
+
+        owner_user_id, db_owner_type, private_enc = row
+
+        if int(owner_user_id) != int(user_id) or (db_owner_type or "").lower() != owner_type.lower():
+            return False, "You do not have access to this key pair."
+
+        private_pem = _decrypt_private_key_pem(private_enc)
+        return True, private_pem
+
+    except Exception as exc:
+        return False, f"Error loading private key: {exc}"
 
     finally:
         try:

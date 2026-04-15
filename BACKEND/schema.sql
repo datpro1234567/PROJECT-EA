@@ -49,6 +49,9 @@ IF OBJECT_ID('fk_certificates_revoked_by_admin', 'F') IS NOT NULL
 
 IF OBJECT_ID('fk_certificates_crl', 'F') IS NOT NULL
 	ALTER TABLE certificates DROP CONSTRAINT fk_certificates_crl;
+
+IF OBJECT_ID('fk_certificate_status_crl', 'F') IS NOT NULL
+	ALTER TABLE certificate_status DROP CONSTRAINT fk_certificate_status_crl;
 GO
 
 -- Xóa các bảng cũ nếu tồn tại
@@ -81,7 +84,7 @@ CREATE TABLE key_pairs (
 	owner_user_id BIGINT NULL,
 	owner_type NVARCHAR(20) NOT NULL CHECK (owner_type IN ('admin', 'customer', 'root_ca', 'system')),
 	public_key NVARCHAR(MAX) NOT NULL,
-	private_key_encrypted NVARCHAR(MAX) NOT NULL,
+	private_key_encrypted VARBINARY(MAX) NOT NULL,
 	algorithm NVARCHAR(50) NOT NULL,
 	key_size INT NOT NULL,
 	purpose NVARCHAR(100) NOT NULL,
@@ -305,5 +308,14 @@ VALUES (
 	--Admin1
     'scrypt:32768:8:1$CHqqcMBONJpVO7Va$f6551eb9836a282234feb71668802a5f58d0b7b176823010e83b83d1a0365a6dc8783765b6a117ded87bb77ddefeff72100d38a9bb62dffb12bc6bd82d875184',
     'admin',
+    'admin@example.com'
+);
+
+INSERT INTO users (username, password_hash, role, email)
+VALUES (
+    'user',
+	--Admin1
+    'scrypt:32768:8:1$CHqqcMBONJpVO7Va$f6551eb9836a282234feb71668802a5f58d0b7b176823010e83b83d1a0365a6dc8783765b6a117ded87bb77ddefeff72100d38a9bb62dffb12bc6bd82d875184',
+    'user',
     'admin@example.com'
 );

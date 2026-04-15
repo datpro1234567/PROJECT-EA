@@ -5,6 +5,8 @@ USE ea_db;
 SELECT * FROM users;
 SELECT * FROM key_pairs;
 SELECT * FROM certificates;
+SELECT * FROM certificate_ownership;
+SELECT * FROM certificate_requests;
 SELECT * FROM certificate_requests;
 SELECT * FROM system_settings;
 SELECT * FROM certificate_revocation_list;

@@ -7,6 +7,7 @@ from flask import (
     # flash,
     session,
     jsonify,
+    make_response,
 )
 from functools import wraps
 from services.auth_services import (
@@ -15,7 +16,13 @@ from services.auth_services import (
     check_user_exists,
     change_user_password,
 )
-from services.key_pair_services import generate_root_ca_key_pair, generate_root_ca_certificate
+from services.key_pair_services import (
+    generate_root_ca_key_pair,
+    generate_root_ca_certificate,
+    generate_user_key_pair,
+    get_user_key_pairs,
+    get_user_private_key_pem,
+)
 from validators import (
     validate_signup_data,
     validate_signin_data,
@@ -79,6 +86,90 @@ def api_generate_root_certificate():
     success, message = generate_root_ca_certificate(admin_id)
     status_code = 200 if success else 400
     return jsonify({"success": success, "message": message}), status_code
+
+
+@auth_bp.route("/api/user/keypair", methods=["POST"])
+@login_required
+def api_generate_user_keypair():
+    """Generate a personal key pair for the currently logged-in user."""
+
+    if session.get("role") != "customer":
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Only customer users can generate personal key pairs.",
+                }
+            ),
+            403,
+        )
+
+    user_id = session.get("user_id")
+    success, message = generate_user_key_pair(user_id, owner_type="customer")
+    status_code = 200 if success else 400
+    return jsonify({"success": success, "message": message}), status_code
+
+
+@auth_bp.route("/api/user/keypairs", methods=["GET"])
+@login_required
+def api_list_user_keypairs():
+    """Return all key pairs belonging to the current customer user."""
+
+    if session.get("role") != "customer":
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Only customer users can view personal key pairs.",
+                }
+            ),
+            403,
+        )
+
+    user_id = session.get("user_id")
+    success, data = get_user_key_pairs(int(user_id), owner_type="customer")
+
+    if not success:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Could not load key pairs for this user.",
+                }
+            ),
+            500,
+        )
+
+    return jsonify({"success": True, "keys": data}), 200
+
+
+@auth_bp.route("/api/user/keypairs/<int:keypair_id>/private", methods=["GET"])
+@login_required
+def api_download_user_private_key(keypair_id: int):
+    """Allow a customer to download their own private key as a PEM file."""
+
+    if session.get("role") != "customer":
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Only customer users can download personal private keys.",
+                }
+            ),
+            403,
+        )
+
+    user_id = session.get("user_id")
+    success, payload = get_user_private_key_pem(int(user_id), int(keypair_id), owner_type="customer")
+
+    if not success:
+        return jsonify({"success": False, "message": str(payload)}), 404
+
+    private_pem = payload  # bytes
+    response = make_response(private_pem)
+    response.headers["Content-Type"] = "application/x-pem-file"
+    response.headers["Content-Disposition"] = f"attachment; filename=private_key_{keypair_id}.pem"
+    return response
 
 
 @auth_bp.route("/api/change-password", methods=["POST"])
