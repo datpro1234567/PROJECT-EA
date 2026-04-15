@@ -12,6 +12,6 @@ SELECT * FROM system_settings;
 SELECT * FROM certificate_revocation_list;
 SELECT * FROM uploaded_certificates;
 SELECT * FROM activity_logs;
-
+SELECT * FROM certificate_domains;
 -- You can add WHERE clauses here while debugging, for example:
 -- SELECT * FROM users WHERE username = 'testuser';

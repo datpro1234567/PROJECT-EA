@@ -266,6 +266,7 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
         not_before = now
         not_after = now + timedelta(days=int(validity_days))
 
+        # Build the certificate
         builder = (
             x509.CertificateBuilder()
             .subject_name(subject)
@@ -301,12 +302,17 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
 
+		# Full PEM-encoded certificate for storage/download
+        certificate_pem = certificate.public_bytes(
+			encoding=serialization.Encoding.PEM
+		).decode("utf-8")
+
         subject_dn = "CN=Good Web Root CA, O=Good Web, C=VN"
         issuer_dn = subject_dn
 
         signature_algorithm_name = f"{hash_algo.name.upper()}with{algorithm}"
 
-        # 5. Insert certificate record
+        # 5. Insert certificate record (including PEM for later download)
         cursor.execute(
             """
             INSERT INTO certificates (
@@ -317,13 +323,14 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
                 valid_from,
                 valid_to,
                 public_key,
+                certificate_pem,
                 issuer_unique_identifier,
                 subject_unique_identifier,
                 signature_value,
                 signature_algorithm
             )
             OUTPUT INSERTED.id
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 3,  # X.509 v3
@@ -333,6 +340,7 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
                 not_before,
                 not_after,
                 public_key_der,
+                certificate_pem,
                 None,
                 None,
                 certificate.signature,

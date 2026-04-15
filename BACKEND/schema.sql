@@ -50,6 +50,12 @@ IF OBJECT_ID('fk_certificates_revoked_by_admin', 'F') IS NOT NULL
 IF OBJECT_ID('fk_certificates_crl', 'F') IS NOT NULL
 	ALTER TABLE certificates DROP CONSTRAINT fk_certificates_crl;
 
+IF OBJECT_ID('fk_certificates_issuer_certificate', 'F') IS NOT NULL
+	ALTER TABLE certificates DROP CONSTRAINT fk_certificates_issuer_certificate;
+
+IF OBJECT_ID('fk_certificate_domains_certificate', 'F') IS NOT NULL
+	ALTER TABLE certificate_domains DROP CONSTRAINT fk_certificate_domains_certificate;
+
 IF OBJECT_ID('fk_certificate_status_crl', 'F') IS NOT NULL
 	ALTER TABLE certificate_status DROP CONSTRAINT fk_certificate_status_crl;
 GO
@@ -63,6 +69,7 @@ IF OBJECT_ID('dbo.certificate_extensions', 'U') IS NOT NULL DROP TABLE dbo.certi
 IF OBJECT_ID('dbo.certificate_status', 'U') IS NOT NULL DROP TABLE dbo.certificate_status;
 IF OBJECT_ID('dbo.certificate_ownership', 'U') IS NOT NULL DROP TABLE dbo.certificate_ownership;
 IF OBJECT_ID('dbo.certificate_requests', 'U') IS NOT NULL DROP TABLE dbo.certificate_requests;
+IF OBJECT_ID('dbo.certificate_domains', 'U') IS NOT NULL DROP TABLE dbo.certificate_domains;
 IF OBJECT_ID('dbo.certificates', 'U') IS NOT NULL DROP TABLE dbo.certificates;
 IF OBJECT_ID('dbo.extensions', 'U') IS NOT NULL DROP TABLE dbo.extensions;
 IF OBJECT_ID('dbo.key_pairs', 'U') IS NOT NULL DROP TABLE dbo.key_pairs;
@@ -99,11 +106,13 @@ CREATE TABLE certificates (
 
 	subject_dn NVARCHAR(MAX) NOT NULL,
 	issuer_dn NVARCHAR(MAX) NOT NULL,
+	issuer_certificate_id BIGINT NULL,
 
 	valid_from DATETIME2 NOT NULL,
 	valid_to DATETIME2 NOT NULL,
 
 	public_key VARBINARY(MAX) NOT NULL,
+	certificate_pem NVARCHAR(MAX) NULL,
 
 	issuer_unique_identifier NVARCHAR(255) NULL,
 	subject_unique_identifier NVARCHAR(255) NULL,
@@ -165,6 +174,13 @@ CREATE TABLE certificate_requests (
 	reviewed_at DATETIME2 NULL,
 	reviewed_by_admin_id BIGINT NULL,
 	review_note NVARCHAR(MAX) NULL
+);
+
+-- CERTIFICATE_DOMAINS: list of DNS names per certificate
+CREATE TABLE certificate_domains (
+	id BIGINT IDENTITY(1,1) PRIMARY KEY,
+	certificate_id BIGINT NOT NULL,
+	dns_name NVARCHAR(255) NOT NULL
 );
 
 -- SYSTEM_SETTINGS: global configuration
@@ -269,6 +285,14 @@ ALTER TABLE certificate_ownership
 	ADD CONSTRAINT fk_certificate_ownership_request
 		FOREIGN KEY (request_id) REFERENCES certificate_requests(id);
 
+ALTER TABLE certificates
+	ADD CONSTRAINT fk_certificates_issuer_certificate
+		FOREIGN KEY (issuer_certificate_id) REFERENCES certificates(id);
+
+ALTER TABLE certificate_domains
+	ADD CONSTRAINT fk_certificate_domains_certificate
+		FOREIGN KEY (certificate_id) REFERENCES certificates(id);
+
 ALTER TABLE certificate_requests
 	ADD CONSTRAINT fk_certificate_requests_user
 		FOREIGN KEY (user_id) REFERENCES users(id);
@@ -316,6 +340,6 @@ VALUES (
     'user',
 	--Admin1
     'scrypt:32768:8:1$CHqqcMBONJpVO7Va$f6551eb9836a282234feb71668802a5f58d0b7b176823010e83b83d1a0365a6dc8783765b6a117ded87bb77ddefeff72100d38a9bb62dffb12bc6bd82d875184',
-    'user',
-    'admin@example.com'
+    'customer',
+    'user@example.com'
 );
