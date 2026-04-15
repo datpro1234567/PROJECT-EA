@@ -32,6 +32,48 @@
       {% endif %}
     </div>
 
+    <div style="max-width:400px; margin:32px auto; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+      <h2 style="margin-bottom:16px; font-size:18px;">Change Password</h2>
+      <form id="change-password-form">
+        <div style="margin-bottom:12px; text-align:left;">
+          <label for="old_password" style="display:block; margin-bottom:4px; font-size:14px;">Old password</label>
+          <input
+            type="password"
+            id="old_password"
+            name="old_password"
+            style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
+            required
+          />
+        </div>
+        <div style="margin-bottom:12px; text-align:left;">
+          <label for="new_password" style="display:block; margin-bottom:4px; font-size:14px;">New password</label>
+          <input
+            type="password"
+            id="new_password"
+            name="new_password"
+            style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
+            required
+          />
+        </div>
+        <div style="margin-bottom:16px; text-align:left;">
+          <label for="confirm_password" style="display:block; margin-bottom:4px; font-size:14px;">Confirm new password</label>
+          <input
+            type="password"
+            id="confirm_password"
+            name="confirm_password"
+            style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
+            required
+          />
+        </div>
+        <button
+          type="submit"
+          style="padding:8px 16px; font-size:14px; cursor:pointer; background-color:#6366f1; color:#ffffff; border:none; border-radius:4px; width:100%;"
+        >
+          Update Password
+        </button>
+      </form>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ url_for('static', filename='js/home.js') }}"></script>
   </body>

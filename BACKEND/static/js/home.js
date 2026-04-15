@@ -1,6 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
   const generateBtn = document.getElementById("generate-root-keypair-btn");
 
+  const changePasswordForm = document.getElementById("change-password-form");
+
   if (!generateBtn) return;
 
   generateBtn.addEventListener("click", async () => {
@@ -73,4 +75,64 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
   });
+
+  if (changePasswordForm) {
+    changePasswordForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(changePasswordForm);
+      const data = Object.fromEntries(formData.entries());
+
+      Swal.fire({
+        title: "Updating password...",
+        text: "Please wait a moment",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      try {
+        const res = await fetch("/api/change-password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+
+        const result = await res.json().catch(() => ({}));
+
+        if (res.ok && result.success) {
+          Swal.fire({
+            icon: "success",
+            title: "Password updated",
+            text:
+              result.message ||
+              "Your password has been changed successfully.",
+            confirmButtonColor: "#06b6d4",
+          }).then(() => {
+            changePasswordForm.reset();
+          });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text:
+              result.message ||
+              "Could not change your password. Please check your input and try again.",
+            confirmButtonColor: "#ef4444",
+          });
+        }
+      } catch (error) {
+        console.error("Error changing password:", error);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "Cannot connect to the server. Please try again later.",
+          confirmButtonColor: "#ef4444",
+        });
+      }
+    });
+  }
 });

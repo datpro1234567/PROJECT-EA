@@ -6,7 +6,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      // Chuyển tiếp mọi request /signin ở port 5173 sang Flask port 5000
       '/signin': {
         target: 'http://localhost:5000',
         changeOrigin: true,

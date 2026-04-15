@@ -56,8 +56,12 @@ IF OBJECT_ID('dbo.activity_logs', 'U') IS NOT NULL DROP TABLE dbo.activity_logs;
 IF OBJECT_ID('dbo.uploaded_certificates', 'U') IS NOT NULL DROP TABLE dbo.uploaded_certificates;
 IF OBJECT_ID('dbo.certificate_revocation_list', 'U') IS NOT NULL DROP TABLE dbo.certificate_revocation_list;
 IF OBJECT_ID('dbo.system_settings', 'U') IS NOT NULL DROP TABLE dbo.system_settings;
+IF OBJECT_ID('dbo.certificate_extensions', 'U') IS NOT NULL DROP TABLE dbo.certificate_extensions;
+IF OBJECT_ID('dbo.certificate_status', 'U') IS NOT NULL DROP TABLE dbo.certificate_status;
+IF OBJECT_ID('dbo.certificate_ownership', 'U') IS NOT NULL DROP TABLE dbo.certificate_ownership;
 IF OBJECT_ID('dbo.certificate_requests', 'U') IS NOT NULL DROP TABLE dbo.certificate_requests;
 IF OBJECT_ID('dbo.certificates', 'U') IS NOT NULL DROP TABLE dbo.certificates;
+IF OBJECT_ID('dbo.extensions', 'U') IS NOT NULL DROP TABLE dbo.extensions;
 IF OBJECT_ID('dbo.key_pairs', 'U') IS NOT NULL DROP TABLE dbo.key_pairs;
 IF OBJECT_ID('dbo.users', 'U') IS NOT NULL DROP TABLE dbo.users;
 GO
@@ -86,25 +90,57 @@ CREATE TABLE key_pairs (
 
 -- CERTIFICATES: internal certificates issued by the system
 CREATE TABLE certificates (
-	version TINYINT NOT NULL DEFAULT 3,
 	id BIGINT IDENTITY(1,1) PRIMARY KEY,
-	user_id BIGINT NOT NULL,
-	key_pair_id BIGINT NULL,
-	request_id BIGINT NULL,
+	version TINYINT NOT NULL DEFAULT 3,
 	serial_number NVARCHAR(100) NOT NULL UNIQUE,
+
 	subject_dn NVARCHAR(MAX) NOT NULL,
 	issuer_dn NVARCHAR(MAX) NOT NULL,
+
 	valid_from DATETIME2 NOT NULL,
 	valid_to DATETIME2 NOT NULL,
-	issuer_unique_identifier NVARCHAR(255) NULL,
-	subject_unique_identifier NVARCHAR(255) NULL,
+
+	public_key VARBINARY(MAX) NOT NULL,
+	signature_algorithm NVARCHAR(100) NOT NULL,
+	signature_value VARBINARY(MAX) NOT NULL
+);
+
+-- EXTENSIONS: definition of possible X.509 extensions
+CREATE TABLE extensions (
+	id INT IDENTITY(1,1) PRIMARY KEY,
+	oid NVARCHAR(100) NOT NULL UNIQUE,
+	name NVARCHAR(255) NOT NULL,
+	description NVARCHAR(MAX) NULL,
+	is_critical_by_default BIT NOT NULL DEFAULT 0
+);
+
+-- CERTIFICATE_EXTENSIONS: values of extensions per certificate
+CREATE TABLE certificate_extensions (
+	id BIGINT IDENTITY(1,1) PRIMARY KEY,
+	certificate_id BIGINT NOT NULL,
+	extension_id INT NOT NULL,
+	is_critical BIT NOT NULL DEFAULT 0,
+	value NVARCHAR(MAX) NOT NULL
+);
+
+-- CERTIFICATE_STATUS: status and lifecycle history of certificates
+CREATE TABLE certificate_status (
+	id BIGINT IDENTITY(1,1) PRIMARY KEY,
+	certificate_id BIGINT NOT NULL,
 	status NVARCHAR(30) NOT NULL CHECK (status IN ('pending', 'issued', 'revocation_requested', 'revoked', 'expired')),
-	revoked_at DATETIME2 NULL,
-	revoked_by_admin_id BIGINT NULL,
+	changed_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+	changed_by_admin_id BIGINT NULL,
 	revocation_reason_code NVARCHAR(50) NULL,
-	crl_id BIGINT NULL,
-	signature_value NVARCHAR(MAX) NOT NULL,
-	signature_algorithm NVARCHAR(100) NOT NULL
+	crl_id BIGINT NULL
+);
+
+-- CERTIFICATE_OWNERSHIP: mapping between certificates and owners / key pairs / requests
+CREATE TABLE certificate_ownership (
+	id BIGINT IDENTITY(1,1) PRIMARY KEY,
+	certificate_id BIGINT NOT NULL,
+	user_id BIGINT NOT NULL,
+	key_pair_id BIGINT NULL,
+	request_id BIGINT NULL
 );
 
 -- CERTIFICATE_REQUESTS: issue / revoke / renew / reissue
@@ -190,25 +226,41 @@ ALTER TABLE key_pairs
 	ADD CONSTRAINT fk_key_pairs_owner_user
 		FOREIGN KEY (owner_user_id) REFERENCES users(id);
 
-ALTER TABLE certificates
-	ADD CONSTRAINT fk_certificates_user
+ALTER TABLE certificate_extensions
+	ADD CONSTRAINT fk_certificate_extensions_certificate
+		FOREIGN KEY (certificate_id) REFERENCES certificates(id);
+
+ALTER TABLE certificate_extensions
+	ADD CONSTRAINT fk_certificate_extensions_extension
+		FOREIGN KEY (extension_id) REFERENCES extensions(id);
+
+ALTER TABLE certificate_status
+	ADD CONSTRAINT fk_certificate_status_certificate
+		FOREIGN KEY (certificate_id) REFERENCES certificates(id);
+
+ALTER TABLE certificate_status
+	ADD CONSTRAINT fk_certificate_status_changed_by_admin
+		FOREIGN KEY (changed_by_admin_id) REFERENCES users(id);
+
+ALTER TABLE certificate_status
+	ADD CONSTRAINT fk_certificate_status_crl
+		FOREIGN KEY (crl_id) REFERENCES certificate_revocation_list(id);
+
+ALTER TABLE certificate_ownership
+	ADD CONSTRAINT fk_certificate_ownership_certificate
+		FOREIGN KEY (certificate_id) REFERENCES certificates(id);
+
+ALTER TABLE certificate_ownership
+	ADD CONSTRAINT fk_certificate_ownership_user
 		FOREIGN KEY (user_id) REFERENCES users(id);
 
-ALTER TABLE certificates
-	ADD CONSTRAINT fk_certificates_key_pair
+ALTER TABLE certificate_ownership
+	ADD CONSTRAINT fk_certificate_ownership_key_pair
 		FOREIGN KEY (key_pair_id) REFERENCES key_pairs(id);
 
-ALTER TABLE certificates
-	ADD CONSTRAINT fk_certificates_request
+ALTER TABLE certificate_ownership
+	ADD CONSTRAINT fk_certificate_ownership_request
 		FOREIGN KEY (request_id) REFERENCES certificate_requests(id);
-
-ALTER TABLE certificates
-	ADD CONSTRAINT fk_certificates_revoked_by_admin
-		FOREIGN KEY (revoked_by_admin_id) REFERENCES users(id);
-
-ALTER TABLE certificates
-	ADD CONSTRAINT fk_certificates_crl
-		FOREIGN KEY (crl_id) REFERENCES certificate_revocation_list(id);
 
 ALTER TABLE certificate_requests
 	ADD CONSTRAINT fk_certificate_requests_user

@@ -230,3 +230,20 @@ def validate_password_confirmation(password, confirm_password):
     if password != confirm_password:
         return False, "Passwords do not match"
     return True, None
+
+
+def validate_change_password_data(old_password, new_password, confirm_password):
+    errors = {}
+
+    if not old_password:
+        errors["old_password"] = "Old password is required"
+
+    is_valid, error = validate_password(new_password)
+    if not is_valid:
+        errors["new_password"] = error
+
+    is_valid, error = validate_password_confirmation(new_password, confirm_password)
+    if not is_valid:
+        errors["confirm_password"] = error
+
+    return len(errors) == 0, errors

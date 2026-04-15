@@ -9,9 +9,18 @@ from flask import (
     jsonify,
 )
 from functools import wraps
-from services.auth_services import authenticate_user, create_user, check_user_exists
+from services.auth_services import (
+    authenticate_user,
+    create_user,
+    check_user_exists,
+    change_user_password,
+)
 from services.key_pair_services import generate_root_ca_key_pair
-from validators import validate_signup_data, validate_signin_data
+from validators import (
+    validate_signup_data,
+    validate_signin_data,
+    validate_change_password_data,
+)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -50,6 +59,52 @@ def api_generate_root_keypair():
     success, message = generate_root_ca_key_pair(admin_id)
     status_code = 200 if success else 400
     return jsonify({"success": success, "message": message}), status_code
+
+
+@auth_bp.route("/api/change-password", methods=["POST"])
+@login_required
+def change_password():
+    data = request.get_json(silent=True) or request.form
+
+    old_password = data.get("old_password") or ""
+    new_password = data.get("new_password") or ""
+    confirm_password = (
+        data.get("confirm_password")
+        or data.get("confirm-password")
+        or ""
+    )
+
+    is_valid, errors = validate_change_password_data(
+        old_password, new_password, confirm_password
+    )
+    if not is_valid:
+        first_error = next(iter(errors.values()))
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": first_error,
+                    "errors": errors,
+                }
+            ),
+            400,
+        )
+
+    user_id = session.get("user_id")
+    result, message = change_user_password(user_id, old_password, new_password)
+
+    if result is None:
+        return (
+            jsonify({"success": False, "message": message}),
+            500,
+        )
+    if result is False:
+        return (
+            jsonify({"success": False, "message": message}),
+            400,
+        )
+
+    return jsonify({"success": True, "message": message}), 200
 
 
 @auth_bp.route("/logout", methods=["POST"])
