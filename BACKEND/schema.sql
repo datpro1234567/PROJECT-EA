@@ -101,8 +101,12 @@ CREATE TABLE certificates (
 	valid_to DATETIME2 NOT NULL,
 
 	public_key VARBINARY(MAX) NOT NULL,
-	signature_algorithm NVARCHAR(100) NOT NULL,
-	signature_value VARBINARY(MAX) NOT NULL
+
+	issuer_unique_identifier NVARCHAR(255) NULL,
+	subject_unique_identifier NVARCHAR(255) NULL,
+
+	signature_value VARBINARY(MAX) NOT NULL,
+	signature_algorithm NVARCHAR(100) NOT NULL
 );
 
 -- EXTENSIONS: definition of possible X.509 extensions

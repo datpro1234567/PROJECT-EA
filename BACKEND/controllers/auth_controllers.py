@@ -15,7 +15,7 @@ from services.auth_services import (
     check_user_exists,
     change_user_password,
 )
-from services.key_pair_services import generate_root_ca_key_pair
+from services.key_pair_services import generate_root_ca_key_pair, generate_root_ca_certificate
 from validators import (
     validate_signup_data,
     validate_signin_data,
@@ -57,6 +57,26 @@ def api_generate_root_keypair():
 
     admin_id = session.get("user_id")
     success, message = generate_root_ca_key_pair(admin_id)
+    status_code = 200 if success else 400
+    return jsonify({"success": success, "message": message}), status_code
+
+
+@auth_bp.route("/api/admin/root-certificate", methods=["POST"])
+@login_required
+def api_generate_root_certificate():
+    if session.get("role") != "admin":
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "You do not have permission to perform this action.",
+                }
+            ),
+            403,
+        )
+
+    admin_id = session.get("user_id")
+    success, message = generate_root_ca_certificate(admin_id)
     status_code = 200 if success else 400
     return jsonify({"success": success, "message": message}), status_code
 

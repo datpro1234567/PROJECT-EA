@@ -1,80 +1,156 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const generateBtn = document.getElementById("generate-root-keypair-btn");
+  const generateKeyPairBtn = document.getElementById("generate-root-keypair-btn");
+  const generateRootCertBtn = document.getElementById("generate-root-certificate-btn");
 
   const changePasswordForm = document.getElementById("change-password-form");
 
-  if (!generateBtn) return;
+  if (generateKeyPairBtn) {
+    generateKeyPairBtn.addEventListener("click", async () => {
+      const confirmed = await Swal.fire({
+        title: "Generate Root Key Pair",
+        text: "This action will generate a key pair for signing Root Certificates.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Generate",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#06b6d4",
+        cancelButtonColor: "#6b7280",
+      }).then((result) => result.isConfirmed);
 
-  generateBtn.addEventListener("click", async () => {
-    const confirmed = await Swal.fire({
-      title: "Generate Root Key Pair",
-      text: "This action will generate a key pair for signing Root Certificates.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Generate",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#06b6d4",
-      cancelButtonColor: "#6b7280",
-    }).then((result) => result.isConfirmed);
+      if (!confirmed) return;
 
-    if (!confirmed) return;
-
-    Swal.fire({
-      title: "Generating Root Key Pair...",
-      text: "Please wait a moment",
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
-    });
-
-    try {
-      const res = await fetch("/api/admin/root-keypair", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      Swal.fire({
+        title: "Generating Root Key Pair...",
+        text: "Please wait a moment",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
         },
-        body: JSON.stringify({}),
       });
 
-      const result = await res.json().catch(() => ({}));
+      try {
+        const res = await fetch("/api/admin/root-keypair", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        });
 
-      if (res.ok && result.success) {
-        Swal.fire({
-          icon: "success",
-          title: "Success",
-          text: result.message || "Successfully generated Root CA key pair.",
-          confirmButtonColor: "#06b6d4",
-        });
-      } else if (res.status === 403) {
-        Swal.fire({
-          icon: "error",
-          title: "No Permission",
-          text:
-            result.message ||
-            "You do not have permission to perform this action.",
-          confirmButtonColor: "#ef4444",
-        });
-      } else {
+        const result = await res.json().catch(() => ({}));
+
+        if (res.ok && result.success) {
+          Swal.fire({
+            icon: "success",
+            title: "Success",
+            text: result.message || "Successfully generated Root CA key pair.",
+            confirmButtonColor: "#06b6d4",
+          });
+        } else if (res.status === 403) {
+          Swal.fire({
+            icon: "error",
+            title: "No Permission",
+            text:
+              result.message ||
+              "You do not have permission to perform this action.",
+            confirmButtonColor: "#ef4444",
+          });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text:
+              result.message ||
+              "Cannot generate Root CA key pair. Please try again.",
+            confirmButtonColor: "#ef4444",
+          });
+        }
+      } catch (error) {
+        console.error("Error generating root key pair:", error);
         Swal.fire({
           icon: "error",
           title: "Error",
-          text:
-            result.message ||
-            "Cannot generate Root CA key pair. Please try again.",
+          text: "Cannot connect to the server. Please try again later.",
           confirmButtonColor: "#ef4444",
         });
       }
-    } catch (error) {
-      console.error("Error generating root key pair:", error);
+    });
+  }
+
+  if (generateRootCertBtn) {
+    generateRootCertBtn.addEventListener("click", async () => {
+      const confirmed = await Swal.fire({
+        title: "Create Root Certificate",
+        text: "This action will create a self-signed Root Certificate for the entire system.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Generate",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#10b981",
+        cancelButtonColor: "#6b7280",
+      }).then((result) => result.isConfirmed);
+
+      if (!confirmed) return;
+
       Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Cannot connect to the server. Please try again later.",
-        confirmButtonColor: "#ef4444",
+        title: "Generating Root Certificate...",
+        text: "Please wait a moment",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
       });
-    }
-  });
+
+      try {
+        const res = await fetch("/api/admin/root-certificate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        });
+
+        const result = await res.json().catch(() => ({}));
+
+        if (res.ok && result.success) {
+          Swal.fire({
+            icon: "success",
+            title: "Success",
+            text:
+              result.message ||
+              "Successfully generated Root CA Certificate for the system.",
+            confirmButtonColor: "#10b981",
+          });
+        } else if (res.status === 403) {
+          Swal.fire({
+            icon: "error",
+            title: "No Permission",
+            text:
+              result.message ||
+              "You do not have permission to perform this action.",
+            confirmButtonColor: "#ef4444",
+          });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text:
+              result.message ||
+              "Cannot generate Root Certificate. Please try again.",
+            confirmButtonColor: "#ef4444",
+          });
+        }
+      } catch (error) {
+        console.error("Error generating root certificate:", error);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "Cannot connect to the server. Please try again later.",
+          confirmButtonColor: "#ef4444",
+        });
+      }
+    });
+  }
 
   if (changePasswordForm) {
     changePasswordForm.addEventListener("submit", async (e) => {
