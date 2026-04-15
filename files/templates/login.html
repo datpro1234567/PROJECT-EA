@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Đăng nhập — X.509 CA{% endblock %}
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">⬡</div>
+      <h1>X.509 CA System</h1>
+      <p>Hệ thống quản lý chứng nhận số</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('login') }}" class="auth-form">
+      <div class="form-group">
+        <label for="username">Tên đăng nhập</label>
+        <input type="text" id="username" name="username"
+               placeholder="Nhập username" required autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label for="password">Mật khẩu</label>
+        <input type="password" id="password" name="password"
+               placeholder="••••••••" required autocomplete="current-password"/>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Đăng nhập</button>
+    </form>
+
+    <div class="auth-footer">
+      Chưa có tài khoản?
+      <a href="{{ url_for('register') }}">Đăng ký ngay</a>
+    </div>
+  </div>
+
+  <div class="auth-deco">
+    <div class="deco-grid"></div>
+    <div class="deco-cert-preview">
+      <div class="cert-line">CERTIFICATE</div>
+      <div class="cert-line dim">Version: X.509v3</div>
+      <div class="cert-line dim">Algorithm: SHA256withRSA</div>
+      <div class="cert-line">Issuer: CN=Root CA</div>
+      <div class="cert-line dim">Valid: 2024–2025</div>
+      <div class="cert-line accent">Status: ✓ VALID</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Yêu cầu của tôi{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Yêu cầu chứng nhận của tôi</h1>
+  <a href="{{ url_for('request_cert') }}" class="btn btn-primary">＋ Yêu cầu mới</a>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>Tên miền</th><th>Tổ chức</th><th>Ngày gửi</th><th>Trạng thái</th><th>Ghi chú</th></tr>
+    </thead>
+    <tbody>
+      {% for req in requests %}
+      <tr>
+        <td class="mono">{{ req.domain }}</td>
+        <td class="text-dim">{{ req.organization or '—' }}</td>
+        <td class="text-dim">{{ req.submitted_at }}</td>
+        <td><span class="status-badge status-{{ req.status }}">{{ req.status | upper }}</span></td>
+        <td class="text-dim">
+          {% if req.status == 'rejected' %}
+            <span class="text-danger">{{ req.reject_reason }}</span>
+          {% elif req.status == 'approved' %}
+            <span class="text-success">Đã cấp chứng nhận ✓</span>
+          {% elif req.status == 'pending' %}
+            Đang chờ admin duyệt…
+          {% else %}
+            {{ req.reject_reason or '—' }}
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-dim">Chưa có yêu cầu nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

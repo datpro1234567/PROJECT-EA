@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — X.509 CA{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Xin chào, {{ session.username }}!</h1>
+  <a href="{{ url_for('request_cert') }}" class="btn btn-primary">＋ Yêu cầu chứng nhận mới</a>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ requests | length }}</div>
+    <div class="stat-label">Tổng yêu cầu</div>
+    <div class="stat-icon">◎</div>
+  </div>
+  <div class="stat-card accent-yellow">
+    <div class="stat-value">{{ requests | selectattr('status','eq','pending') | list | length }}</div>
+    <div class="stat-label">Đang chờ duyệt</div>
+    <div class="stat-icon">⏳</div>
+  </div>
+  <div class="stat-card accent-green">
+    <div class="stat-value">{{ certs | selectattr('status','eq','valid') | list | length }}</div>
+    <div class="stat-label">Chứng nhận hiệu lực</div>
+    <div class="stat-icon">◉</div>
+  </div>
+</div>
+
+<div class="section-header">
+  <h2>Chứng nhận của tôi</h2>
+  <a href="{{ url_for('my_certs') }}" class="btn btn-ghost btn-sm">Xem tất cả →</a>
+</div>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>Tên miền</th><th>Ngày cấp</th><th>Hết hạn</th><th>Trạng thái</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for cert in certs[:5] %}
+      <tr>
+        <td class="mono">{{ cert.common_name }}</td>
+        <td class="text-dim">{{ cert.issued_at }}</td>
+        <td class="text-dim">{{ cert.not_after }}</td>
+        <td><span class="status-badge status-{{ cert.status }}">{{ cert.status | upper }}</span></td>
+        <td>
+          <a href="{{ url_for('download_my_cert', cert_id=cert.id) }}" class="btn btn-ghost btn-xs">↓ Tải</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-dim">Chưa có chứng nhận nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="section-header">
+  <h2>Yêu cầu gần đây</h2>
+  <a href="{{ url_for('my_requests') }}" class="btn btn-ghost btn-sm">Xem tất cả →</a>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>Tên miền</th><th>Ngày gửi</th><th>Trạng thái</th><th>Ghi chú</th></tr>
+    </thead>
+    <tbody>
+      {% for req in requests[:5] %}
+      <tr>
+        <td class="mono">{{ req.domain }}</td>
+        <td class="text-dim">{{ req.submitted_at }}</td>
+        <td><span class="status-badge status-{{ req.status }}">{{ req.status | upper }}</span></td>
+        <td class="text-dim">{{ req.reject_reason or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="text-center text-dim">Chưa có yêu cầu nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

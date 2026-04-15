@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Chứng nhận #{{ cert.id }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Chứng nhận: {{ cert.common_name }}</h1>
+  <span class="status-badge status-{{ cert.status }}">{{ cert.status | upper }}</span>
+</div>
+
+<div class="detail-grid">
+  <div class="detail-card">
+    <h3>Thông tin chứng nhận</h3>
+    <table class="info-table">
+      <tr><td>Serial Number</td><td class="mono" style="font-size:0.8rem">{{ cert.serial_number }}</td></tr>
+      <tr><td>Common Name</td><td class="mono">{{ cert.common_name }}</td></tr>
+      <tr><td>Issued by (CA)</td><td>{{ cert.ca_name }}</td></tr>
+      <tr><td>Cấp cho</td><td>{{ cert.username }} ({{ cert.email }})</td></tr>
+      <tr><td>Ngày cấp</td><td>{{ cert.issued_at }}</td></tr>
+      <tr><td>Hiệu lực từ</td><td>{{ cert.not_before }}</td></tr>
+      <tr><td>Hết hạn</td><td>{{ cert.not_after }}</td></tr>
+      {% if cert.revoke_reason %}<tr><td>Lý do thu hồi</td><td class="text-danger">{{ cert.revoke_reason }}</td></tr>{% endif %}
+      {% if cert.revoked_at %}<tr><td>Ngày thu hồi</td><td>{{ cert.revoked_at }}</td></tr>{% endif %}
+    </table>
+  </div>
+  <div class="detail-card">
+    <h3>Certificate PEM</h3>
+    <textarea class="code-area" rows="18" readonly>{{ cert.cert_pem }}</textarea>
+  </div>
+</div>
+
+<div class="form-actions">
+  <a href="{{ url_for('admin_certs') }}" class="btn btn-ghost">← Quay lại</a>
+  <a href="{{ url_for('admin_download_cert', cert_id=cert.id) }}" class="btn btn-primary">↓ Tải PEM</a>
+  {% if cert.status == 'valid' %}
+  <form method="POST" action="{{ url_for('admin_revoke', cert_id=cert.id) }}" style="display:inline">
+    <input type="text" name="reason" placeholder="Lý do thu hồi" required style="display:inline;width:200px" class="inline-input"/>
+    <button type="submit" class="btn btn-danger" onclick="return confirm('Xác nhận thu hồi?')">Thu hồi chứng nhận</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

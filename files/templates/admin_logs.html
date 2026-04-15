@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Audit Log hệ thống</h1>
+  <span class="page-subtitle">500 bản ghi gần nhất</span>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>Thời gian</th><th>Người dùng</th><th>Hành động</th><th>Đối tượng</th><th>Chi tiết</th><th>IP</th></tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td class="mono text-dim" style="font-size:0.8rem">{{ log.created_at }}</td>
+        <td>{{ log.username or '<em>system</em>' }}</td>
+        <td><span class="tag tag-action">{{ log.action }}</span></td>
+        <td class="text-dim">
+          {% if log.target_type %}{{ log.target_type }}{% if log.target_id %} #{{ log.target_id }}{% endif %}{% else %}—{% endif %}
+        </td>
+        <td class="text-dim" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">{{ log.detail or '—' }}</td>
+        <td class="mono text-dim" style="font-size:0.75rem">{{ log.ip_address or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="text-center text-dim">Chưa có log nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

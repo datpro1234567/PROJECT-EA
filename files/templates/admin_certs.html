@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Quản lý chứng nhận{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Tất cả chứng nhận đã cấp</h1>
+  <form method="GET" class="search-bar">
+    <input type="text" name="q" value="{{ keyword }}" placeholder="Tìm theo tên miền, serial, user..."/>
+    <button type="submit" class="btn btn-primary btn-sm">Tìm</button>
+    {% if keyword %}<a href="{{ url_for('admin_certs') }}" class="btn btn-ghost btn-sm">×</a>{% endif %}
+  </form>
+</div>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>#</th><th>Tên miền</th><th>Người dùng</th><th>Serial</th><th>Hết hạn</th><th>Trạng thái</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for cert in certs %}
+      <tr>
+        <td class="mono text-dim">{{ cert.id }}</td>
+        <td class="mono">{{ cert.common_name }}</td>
+        <td>{{ cert.username }}</td>
+        <td class="mono text-dim" style="font-size:0.75rem">{{ cert.serial_number[:20] }}…</td>
+        <td class="text-dim">{{ cert.not_after }}</td>
+        <td><span class="status-badge status-{{ cert.status }}">{{ cert.status | upper }}</span></td>
+        <td class="actions-cell">
+          <a href="{{ url_for('admin_cert_detail', cert_id=cert.id) }}" class="btn btn-ghost btn-xs">Chi tiết</a>
+          <a href="{{ url_for('admin_download_cert', cert_id=cert.id) }}" class="btn btn-ghost btn-xs">↓ PEM</a>
+          {% if cert.status == 'valid' %}
+          <form method="POST" action="{{ url_for('admin_revoke', cert_id=cert.id) }}" style="display:inline">
+            <input type="hidden" name="reason" value="Admin thu hồi"/>
+            <button type="submit" class="btn btn-danger btn-xs" onclick="return confirm('Thu hồi chứng nhận này?')">Thu hồi</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-dim">Không tìm thấy chứng nhận.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

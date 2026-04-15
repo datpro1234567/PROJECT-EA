@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Quản lý yêu cầu{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Quản lý yêu cầu chứng nhận</h1>
+  <div class="filter-tabs">
+    <a href="?status=all" class="tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
+    <a href="?status=pending" class="tab {% if status_filter == 'pending' %}active{% endif %}">Chờ duyệt</a>
+  </div>
+</div>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th><th>Người dùng</th><th>Tên miền</th>
+        <th>Ngày gửi</th><th>Trạng thái</th><th>Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in requests %}
+      <tr>
+        <td class="mono text-dim">{{ req.id }}</td>
+        <td>{{ req.username }}<br><small class="text-dim">{{ req.email }}</small></td>
+        <td class="mono">{{ req.domain }}</td>
+        <td class="text-dim">{{ req.submitted_at }}</td>
+        <td><span class="status-badge status-{{ req.status }}">{{ req.status | upper }}</span></td>
+        <td>
+          <a href="{{ url_for('admin_request_detail', req_id=req.id) }}" class="btn btn-ghost btn-xs">Chi tiết</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="text-center text-dim">Không có yêu cầu nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

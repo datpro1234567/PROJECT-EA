@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Chứng nhận của tôi{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Chứng nhận của tôi</h1>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>Tên miền</th><th>Serial</th><th>CA cấp</th><th>Ngày cấp</th><th>Hết hạn</th><th>Trạng thái</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for cert in certs %}
+      <tr>
+        <td class="mono">{{ cert.common_name }}</td>
+        <td class="mono text-dim" style="font-size:0.75rem">{{ cert.serial_number[:16] }}…</td>
+        <td class="text-dim">{{ cert.ca_name }}</td>
+        <td class="text-dim">{{ cert.issued_at }}</td>
+        <td class="text-dim">{{ cert.not_after }}</td>
+        <td><span class="status-badge status-{{ cert.status }}">{{ cert.status | upper }}</span></td>
+        <td>
+          <a href="{{ url_for('download_my_cert', cert_id=cert.id) }}" class="btn btn-ghost btn-xs">↓ Tải PEM</a>
+          <a href="{{ url_for('verify_cert', cert_id=cert.id) }}" class="btn btn-ghost btn-xs" target="_blank">🔍 Verify</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-dim">Bạn chưa có chứng nhận nào. <a href="{{ url_for('request_cert') }}">Yêu cầu ngay</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Chi tiết yêu cầu #{{ req.id }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Yêu cầu #{{ req.id }} — {{ req.domain }}</h1>
+  <span class="status-badge status-{{ req.status }}">{{ req.status | upper }}</span>
+</div>
+
+<div class="detail-grid">
+  <div class="detail-card">
+    <h3>Thông tin yêu cầu</h3>
+    <table class="info-table">
+      <tr><td>Người dùng</td><td>{{ req.username }}</td></tr>
+      <tr><td>Tên miền</td><td class="mono">{{ req.domain }}</td></tr>
+      <tr><td>Tổ chức</td><td>{{ req.organization or '—' }}</td></tr>
+      <tr><td>Quốc gia</td><td>{{ req.country }}</td></tr>
+      <tr><td>Ngày gửi</td><td>{{ req.submitted_at }}</td></tr>
+      {% if req.reject_reason %}<tr><td>Lý do từ chối</td><td class="text-danger">{{ req.reject_reason }}</td></tr>{% endif %}
+    </table>
+  </div>
+
+  <div class="detail-card">
+    <h3>CSR (Certificate Signing Request)</h3>
+    <textarea class="code-area" rows="12" readonly>{{ req.csr_pem }}</textarea>
+  </div>
+</div>
+
+{% if req.status == 'pending' %}
+<div class="action-panel">
+  <div class="action-block">
+    <h3>✓ Phê duyệt và cấp chứng nhận</h3>
+    <form method="POST" action="{{ url_for('admin_approve', req_id=req.id) }}">
+      <div class="form-group">
+        <label>Chọn Root CA để ký</label>
+        <select name="root_ca_id" required>
+          {% for root in roots %}
+          <option value="{{ root.id }}">{{ root.common_name }} (hết hạn: {{ root.not_after }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-success" onclick="return confirm('Xác nhận cấp chứng nhận?')">
+        ✓ Phê duyệt & Cấp
+      </button>
+    </form>
+  </div>
+
+  <div class="action-block">
+    <h3>✗ Từ chối yêu cầu</h3>
+    <form method="POST" action="{{ url_for('admin_reject', req_id=req.id) }}">
+      <div class="form-group">
+        <label>Lý do từ chối</label>
+        <input type="text" name="reason" placeholder="Nhập lý do..." required/>
+      </div>
+      <button type="submit" class="btn btn-danger" onclick="return confirm('Xác nhận từ chối?')">
+        ✗ Từ chối
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<a href="{{ url_for('admin_requests') }}" class="btn btn-ghost">← Quay lại</a>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Đăng ký — X.509 CA{% endblock %}
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">⬡</div>
+      <h1>Đăng ký tài khoản</h1>
+      <p>Tạo tài khoản khách hàng để yêu cầu chứng nhận</p>
+    </div>
+    <form method="POST" class="auth-form">
+      <div class="form-group">
+        <label>Tên đăng nhập *</label>
+        <input type="text" name="username" placeholder="vd: nguyen_van_a" required/>
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu *</label>
+        <input type="password" name="password" placeholder="Tối thiểu 6 ký tự" required/>
+      </div>
+      <div class="form-group">
+        <label>Họ và tên</label>
+        <input type="text" name="full_name" placeholder="Nguyễn Văn A"/>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="email@example.com"/>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Tạo tài khoản</button>
+    </form>
+    <div class="auth-footer">
+      Đã có tài khoản? <a href="{{ url_for('login') }}">Đăng nhập</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

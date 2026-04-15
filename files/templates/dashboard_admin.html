@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Admin — X.509 CA{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Dashboard Admin</h1>
+  <span class="page-subtitle">Tổng quan hệ thống</span>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.total_root_cas }}</div>
+    <div class="stat-label">Root CA</div>
+    <div class="stat-icon">◈</div>
+  </div>
+  <div class="stat-card accent-yellow">
+    <div class="stat-value">{{ stats.pending_reqs }}</div>
+    <div class="stat-label">Đang chờ duyệt</div>
+    <div class="stat-icon">◎</div>
+  </div>
+  <div class="stat-card accent-green">
+    <div class="stat-value">{{ stats.total_certs }}</div>
+    <div class="stat-label">Chứng nhận đã cấp</div>
+    <div class="stat-icon">◉</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.total_users }}</div>
+    <div class="stat-label">Người dùng</div>
+    <div class="stat-icon">◐</div>
+  </div>
+</div>
+
+<div class="section-header">
+  <h2>Hoạt động gần đây</h2>
+  <a href="{{ url_for('admin_logs') }}" class="btn btn-ghost btn-sm">Xem tất cả →</a>
+</div>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Thời gian</th><th>Người dùng</th><th>Hành động</th><th>IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td class="mono text-dim">{{ log.created_at }}</td>
+        <td>{{ log.username or '—' }}</td>
+        <td><span class="tag tag-action">{{ log.action }}</span></td>
+        <td class="mono text-dim">{{ log.ip_address or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="text-center text-dim">Chưa có hoạt động nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if stats.pending_reqs > 0 %}
+<div class="alert-banner">
+  <span>⚠ Có {{ stats.pending_reqs }} yêu cầu chứng nhận đang chờ duyệt.</span>
+  <a href="{{ url_for('admin_requests', status='pending') }}" class="btn btn-sm btn-primary">Xem ngay</a>
+</div>
+{% endif %}
+{% endblock %}

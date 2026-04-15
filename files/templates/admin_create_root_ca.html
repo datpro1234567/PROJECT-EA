@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Tạo Root CA mới{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Tạo Root Certificate Authority</h1>
+  <span class="page-subtitle">Level 0 — Tự ký (self-signed)</span>
+</div>
+<div class="form-card">
+  <form method="POST">
+    <div class="form-group">
+      <label>Common Name (CN) *</label>
+      <input type="text" name="common_name" placeholder="vd: My Root CA" required/>
+    </div>
+    <div class="form-group">
+      <label>Tên tổ chức</label>
+      <input type="text" name="organization" value="X509 CA System"/>
+    </div>
+    <div class="form-group">
+      <label>Thời hạn (ngày)</label>
+      <input type="number" name="validity_days" value="3650" min="365" max="7300"/>
+      <small class="form-hint">3650 ngày = 10 năm (khuyến nghị cho Root CA)</small>
+    </div>
+    <div class="info-box">
+      <strong>ℹ Lưu ý:</strong> Private Key của Root CA sẽ được lưu trong database (dùng để ký các chứng nhận).
+      Trong môi trường production, nên mã hóa bằng HSM hoặc vault.
+    </div>
+    <div class="form-actions">
+      <a href="{{ url_for('admin_root_ca') }}" class="btn btn-ghost">Hủy</a>
+      <button type="submit" class="btn btn-primary">Tạo Root CA</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
