@@ -25,6 +25,8 @@ def millerRabin(value):
         r -= 1
         if x == value - 1:
             return True
+        if x == value -1:
+            return False
     return False
 
 def isLargePrime(value):
@@ -45,7 +47,7 @@ def generateLargePrime():
         break;
     return p
 
-def rsa():
+def generatePairKey():
     p = generateLargePrime()
     while True:
         q = generateLargePrime()
@@ -58,10 +60,16 @@ def rsa():
     e = 65537
     d = pow(e,-1,phi)
 
-    message = 1234
+    publicKey = (e,n)
+    privateKey = (d,n)
+    return publicKey, privateKey
+
+def encrypt(message,publicKey):
+    e, n = publicKey
     cipher = pow(message,e,n)
-    plain = pow(cipher,d,n)
-    print(cipher)
-    print()
-    print(plain)
-rsa()
+    return cipher
+
+def decrypt(message, privateKey):
+    d, n = privateKey
+    plain = pow(message,d,n)
+    return plain
