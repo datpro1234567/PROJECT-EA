@@ -3,6 +3,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!form) return;
 
   const csrOut = document.getElementById("csr_pem");
+  const subjectC = document.getElementById("subject_c");
+
+  subjectC?.addEventListener("input", () => {
+    subjectC.value = (subjectC.value || "").toUpperCase();
+  });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

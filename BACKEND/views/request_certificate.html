@@ -37,6 +37,33 @@
             </div>
 
             <div style="margin-bottom:12px;">
+              <label for="subject_o" style="display:block; margin-bottom:6px; font-size:14px;">Chủ sở hữu (Subject O)</label>
+              <input
+                type="text"
+                id="subject_o"
+                name="subject_o"
+                placeholder="My Company"
+                style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
+                required
+              />
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <label for="subject_c" style="display:block; margin-bottom:6px; font-size:14px;">Quốc gia (Subject C)</label>
+              <input
+                type="text"
+                id="subject_c"
+                name="subject_c"
+                value="VN"
+                maxlength="2"
+                placeholder="VN"
+                style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px; text-transform:uppercase;"
+                required
+              />
+              <div style="margin-top:6px; font-size:12px; color:#6b7280;">Mã quốc gia 2 ký tự (VD: VN, US).</div>
+            </div>
+
+            <div style="margin-bottom:12px;">
               <label for="key_pair_id" style="display:block; margin-bottom:6px; font-size:14px;">Chọn key pair</label>
               <select
                 id="key_pair_id"

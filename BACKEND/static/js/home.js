@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const viewCertificateRequestsBtn = document.getElementById("view-certificate-requests-btn");
   const revokeCertificateBtn = document.getElementById("revoke-certificate-btn");
   const viewRevocationsBtn = document.getElementById("view-revocations-btn");
+  const trackedCertificatesBtn = document.getElementById("tracked-certificates-btn");
 
   const userKeypairsList = document.getElementById("user-keypairs-list");
   const userCertificatesList = document.getElementById("user-certificates-list");
@@ -357,6 +358,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (viewRevocationsBtn) {
     viewRevocationsBtn.addEventListener("click", () => {
       window.location.href = "/revocations";
+    });
+  }
+
+  if (trackedCertificatesBtn) {
+    trackedCertificatesBtn.addEventListener("click", () => {
+      window.location.href = "/certificates/tracked";
     });
   }
 

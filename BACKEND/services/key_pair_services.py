@@ -11,8 +11,6 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.fernet import Fernet
 from cryptography.x509.oid import NameOID
 
-# cho seed tạo key pair
-# module
 
 def _load_system_settings(cursor) -> Optional[Dict]:
 
@@ -33,6 +31,128 @@ def _load_system_settings(cursor) -> Optional[Dict]:
 
     columns = [col[0] for col in cursor.description]
     return dict(zip(columns, row))
+
+
+def get_system_settings() -> Tuple[bool, object]:
+    """Return current global system settings (row id=1)."""
+
+    conn = get_db_connection()
+    if not conn:
+        return False, "cannot connect to database"
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        settings = _load_system_settings(cursor)
+        if not settings:
+            return False, "System settings not configured."
+        # Normalize output
+        settings["default_key_algorithm"] = (settings.get("default_key_algorithm") or "RSA").upper()
+        settings["default_hash_algorithm"] = (settings.get("default_hash_algorithm") or "SHA256").upper()
+        settings["default_key_size"] = int(settings.get("default_key_size") or 2048)
+        settings["default_validity_days"] = int(settings.get("default_validity_days") or 365)
+        return True, settings
+
+    except Exception as exc:
+        return False, f"Error loading system settings: {exc}"
+
+    finally:
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        conn.close()
+
+
+def update_system_settings(
+    default_key_algorithm: str,
+    default_hash_algorithm: str,
+    default_key_size: int,
+    default_validity_days: int,
+) -> Tuple[bool, str]:
+    """Update global system settings (row id=1)."""
+
+    algo = (default_key_algorithm or "RSA").strip().upper()
+    # Current implementation supports RSA only
+    if algo != "RSA":
+        return False, "Only RSA is supported currently."
+
+    hash_name = (default_hash_algorithm or "SHA256").strip().upper()
+    allowed_hash = {"SHA256", "SHA384", "SHA512", "SHA224"}
+    if hash_name not in allowed_hash:
+        return False, f"Invalid hash algorithm. Allowed: {', '.join(sorted(allowed_hash))}"
+
+    try:
+        key_size = int(default_key_size)
+    except Exception:
+        return False, "Invalid key size."
+
+    if key_size not in (2048, 3072, 4096):
+        return False, "Key size must be one of: 2048, 3072, 4096."
+
+    try:
+        validity_days = int(default_validity_days)
+    except Exception:
+        return False, "Invalid default validity days."
+
+    if validity_days < 1 or validity_days > 3650:
+        return False, "Default validity days must be between 1 and 3650."
+
+    conn = get_db_connection()
+    if not conn:
+        return False, "cannot connect to database"
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            UPDATE system_settings
+            SET
+                default_key_algorithm = ?,
+                default_hash_algorithm = ?,
+                default_key_size = ?,
+                default_validity_days = ?
+            WHERE id = 1
+            """,
+            (algo, hash_name, int(key_size), int(validity_days)),
+        )
+
+        if cursor.rowcount == 0:
+            # If the row does not exist (shouldn't happen if schema seeded), insert it.
+            cursor.execute(
+                """
+                INSERT INTO system_settings (
+                    id,
+                    default_key_algorithm,
+                    default_hash_algorithm,
+                    default_key_size,
+                    default_validity_days
+                )
+                VALUES (1, ?, ?, ?, ?)
+                """,
+                (algo, hash_name, int(key_size), int(validity_days)),
+            )
+
+        conn.commit()
+        return True, "Saved system settings."
+
+    except Exception as exc:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return False, f"Error saving system settings: {exc}"
+
+    finally:
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        conn.close()
 
 
 def _encrypt_private_key_pem(private_pem: bytes) -> bytes:

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tracked Certificates</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='tree.png') }}"
+    />
+  </head>
+  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="max-width:900px; margin:24px auto; padding:0 16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0; font-size:20px;">Theo dõi chứng nhận (upload)</h1>
+        <button type="button" id="back-home-btn" style="padding:8px 12px; font-size:14px; cursor:pointer;">Về trang chủ</button>
+      </div>
+
+      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+        <form id="upload-cert-form">
+          <div style="margin-bottom:12px;">
+            <label for="certificate_file" style="display:block; margin-bottom:6px; font-size:14px;">Upload chứng nhận (.pem/.crt/.cer/.der)</label>
+            <input
+              type="file"
+              id="certificate_file"
+              name="certificate_file"
+              accept=".pem,.crt,.cer,.der,application/x-x509-ca-cert,application/pkix-cert"
+              style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
+              required
+            />
+            <div style="margin-top:6px; font-size:12px; color:#6b7280;">
+              Hệ thống chỉ dùng file này để parse thông tin (CN/Owner/Valid) và lưu để bạn theo dõi.
+            </div>
+          </div>
+
+          <button type="submit" style="padding:8px 16px; font-size:14px; cursor:pointer;">Upload</button>
+        </form>
+      </div>
+
+      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+        <h2 style="margin:0 0 12px 0; font-size:16px;">Danh sách đã theo dõi</h2>
+        <div style="margin:-6px 0 12px 0; font-size:12px; color:#6b7280;">
+          Ghi chú: cột <b>Chủ sở hữu (O)</b> là <b>Subject O</b>. Bên cấp chứng nhận là <b>Issuer</b> (issuer_dn).
+        </div>
+
+        {% if not items or items|length == 0 %}
+          <div style="font-size:14px;">Chưa có chứng nhận nào được upload.</div>
+        {% else %}
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">ID</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Domain (CN)</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Chủ sở hữu (Subject O)</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Valid To</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Trạng thái</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Fingerprint</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in items %}
+                  <tr>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">{{ c.id }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ c.domain_name or '' }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ c.owner_name or '' }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">{{ c.valid_to }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">
+                      {% if c.status == 'valid' %}
+                        Còn hiệu lực
+                      {% elif c.status == 'expired' %}
+                        Hết hạn
+                      {% else %}
+                        Chưa hiệu lực
+                      {% endif %}
+                    </td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; font-family:monospace; font-size:12px;">{{ c.fingerprint_sha256 }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ url_for('static', filename='js/uploaded_certificates.js') }}"></script>
+    <script>
+      document.getElementById('back-home-btn')?.addEventListener('click', () => {
+        window.location.href = '/';
+      });
+    </script>
+  </body>
+</html>

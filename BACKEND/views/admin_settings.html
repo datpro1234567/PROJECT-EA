@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - System Settings</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <div class="container" style="max-width: 920px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0;">Thiết lập thông số kỹ thuật</h1>
+        <button id="back-dashboard-btn" type="button" style="padding:8px 12px; cursor:pointer;">Quay lại Dashboard</button>
+      </div>
+
+      {% if settings and settings.error %}
+        <div style="margin-top:12px; padding:10px; border:1px solid #fca5a5; background:#fef2f2; border-radius:8px;">
+          <div style="font-size:13px;">Không tải được settings từ DB, đang dùng giá trị mặc định.</div>
+          <div style="font-size:12px; opacity:0.9; margin-top:4px;">{{ settings.error }}</div>
+        </div>
+      {% endif %}
+
+      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div>
+            <label style="display:block; font-size:13px; margin-bottom:6px;">Thuật toán bất đối xứng (Key Algorithm)</label>
+            <select id="default_key_algorithm" style="width:100%; padding:8px;">
+              <option value="RSA" {% if (settings.default_key_algorithm or 'RSA')|upper == 'RSA' %}selected{% endif %}>RSA</option>
+            </select>
+            <div style="font-size:12px; opacity:0.75; margin-top:6px;">
+              Hiện hệ thống chỉ hỗ trợ RSA.
+            </div>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:13px; margin-bottom:6px;">Hàm băm mặc định (Hash)</label>
+            <select id="default_hash_algorithm" style="width:100%; padding:8px;">
+              {% set cur_hash = (settings.default_hash_algorithm or 'SHA256')|upper %}
+              <option value="SHA256" {% if cur_hash == 'SHA256' %}selected{% endif %}>SHA256</option>
+              <option value="SHA384" {% if cur_hash == 'SHA384' %}selected{% endif %}>SHA384</option>
+              <option value="SHA512" {% if cur_hash == 'SHA512' %}selected{% endif %}>SHA512</option>
+              <option value="SHA224" {% if cur_hash == 'SHA224' %}selected{% endif %}>SHA224</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:13px; margin-bottom:6px;">Độ dài khoá mặc định (Key Size)</label>
+            {% set cur_size = settings.default_key_size or 2048 %}
+            <select id="default_key_size" style="width:100%; padding:8px;">
+              <option value="2048" {% if cur_size == 2048 %}selected{% endif %}>2048</option>
+              <option value="3072" {% if cur_size == 3072 %}selected{% endif %}>3072</option>
+              <option value="4096" {% if cur_size == 4096 %}selected{% endif %}>4096</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:13px; margin-bottom:6px;">Hiệu lực mặc định (days)</label>
+            <input
+              id="default_validity_days"
+              type="number"
+              min="1"
+              max="3650"
+              value="{{ settings.default_validity_days or 365 }}"
+              style="width:100%; padding:8px;"
+            />
+            <div style="font-size:12px; opacity:0.75; margin-top:6px;">Giới hạn 1–3650 ngày.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; display:flex; gap:10px;">
+          <button id="save-btn" type="button" style="padding:10px 14px; cursor:pointer;">Lưu cấu hình</button>
+          <button id="reload-btn" type="button" style="padding:10px 14px; cursor:pointer;">Tải lại</button>
+        </div>
+
+        <div style="margin-top:14px; font-size:12px; opacity:0.8;">
+          Ghi chú: mã hoá private key lưu DB đang dùng Fernet qua biến môi trường <b>PRIVATE_KEY_ENCRYPTION_KEY</b> (không cấu hình trong trang này).
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+      const backBtn = document.getElementById('back-dashboard-btn');
+      const saveBtn = document.getElementById('save-btn');
+      const reloadBtn = document.getElementById('reload-btn');
+
+      backBtn?.addEventListener('click', () => {
+        window.location.href = '/admin/dashboard';
+      });
+
+      reloadBtn?.addEventListener('click', () => {
+        window.location.reload();
+      });
+
+      async function postJson(url, body) {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(body || {})
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || !result.success) {
+          throw new Error(result.message || 'Request failed.');
+        }
+        return result;
+      }
+
+      saveBtn?.addEventListener('click', async () => {
+        const algo = document.getElementById('default_key_algorithm')?.value || 'RSA';
+        const hash = document.getElementById('default_hash_algorithm')?.value || 'SHA256';
+        const keySize = parseInt(document.getElementById('default_key_size')?.value || '2048', 10);
+        const validity = parseInt(document.getElementById('default_validity_days')?.value || '365', 10);
+
+        const confirmed = await Swal.fire({
+          title: 'Lưu cấu hình?',
+          text: 'Các lần tạo key/cấp chứng chỉ sau sẽ dùng cấu hình này.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Lưu',
+          cancelButtonText: 'Hủy'
+        }).then(r => r.isConfirmed);
+
+        if (!confirmed) return;
+
+        saveBtn.disabled = true;
+        try {
+          await postJson('/api/admin/settings', {
+            default_key_algorithm: algo,
+            default_hash_algorithm: hash,
+            default_key_size: keySize,
+            default_validity_days: validity
+          });
+          await Swal.fire({ icon: 'success', title: 'Đã lưu', timer: 900, showConfirmButton: false });
+        } catch (err) {
+          Swal.fire({ icon: 'error', title: 'Lỗi', text: String(err?.message || err) });
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

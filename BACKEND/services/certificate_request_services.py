@@ -159,6 +159,8 @@ def generate_csr_for_user_keypair(
     key_pair_id: int,
     domain_name: str,
     private_key_pem: str,
+    subject_o: Optional[str] = None,
+    subject_c: Optional[str] = None,
 ) -> Tuple[bool, object]:
     """Generate a CSR for a user's selected keypair using an uploaded private key.
 
@@ -170,6 +172,16 @@ def generate_csr_for_user_keypair(
     domain = (domain_name or "").strip()
     if not domain:
         return False, "Domain name is required."
+
+    org = (subject_o or "").strip()
+    if not org:
+        return False, "Organization (Subject O) is required."
+
+    country = (subject_c or "").strip().upper()
+    if not country:
+        return False, "Country code (Subject C) is required."
+    if len(country) != 2 or not country.isalpha():
+        return False, "Country code (Subject C) must be 2 letters (e.g., VN, US)."
 
     private_text = (private_key_pem or "").strip()
     if not private_text:
@@ -224,14 +236,29 @@ def generate_csr_for_user_keypair(
         except Exception as exc:
             return False, f"Cannot verify private/public key match: {exc}"
 
+        # Prefer system-configured hash algorithm if available
+        try:
+            settings = _load_system_settings(cursor)
+            csr_hash_algo = _get_hash_algorithm(settings or {})
+        except Exception:
+            csr_hash_algo = hashes.SHA256()
+
+        subject = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COUNTRY_NAME, country),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, org),
+                x509.NameAttribute(NameOID.COMMON_NAME, domain),
+            ]
+        )
+
         csr = (
             x509.CertificateSigningRequestBuilder()
-            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domain)]))
+            .subject_name(subject)
             .add_extension(
                 x509.SubjectAlternativeName([x509.DNSName(domain)]),
                 critical=False,
             )
-            .sign(private_key, hashes.SHA256())
+            .sign(private_key, csr_hash_algo)
         )
 
         csr_pem_out = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")
@@ -506,12 +533,31 @@ def approve_certificate_request(
         # If CSR exists, validate it and use SAN DNS names from CSR.
         # If CSR is missing (legacy requests), continue using domain_name + selected keypair.
         csr_dns_names: List[str] = []
+        csr_subject_country: Optional[str] = None
+        csr_subject_org: Optional[str] = None
         csr_text = (csr_pem or "").strip()
         if csr_text:
             try:
                 csr_obj = x509.load_pem_x509_csr(csr_text.encode("utf-8"))
             except Exception as exc:
                 raise ValueError("Invalid CSR.") from exc
+
+            try:
+                c_attrs = csr_obj.subject.get_attributes_for_oid(NameOID.COUNTRY_NAME)
+                if c_attrs:
+                    v = (c_attrs[0].value or "").strip().upper()
+                    if len(v) == 2 and v.isalpha():
+                        csr_subject_country = v
+            except Exception:
+                csr_subject_country = None
+
+            try:
+                o_attrs = csr_obj.subject.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)
+                if o_attrs:
+                    v = (o_attrs[0].value or "").strip()
+                    csr_subject_org = v or None
+            except Exception:
+                csr_subject_org = None
 
             try:
                 is_valid_sig = getattr(csr_obj, "is_signature_valid", None)
@@ -559,13 +605,13 @@ def approve_certificate_request(
 
         serial_number = x509.random_serial_number()
 
-        subject = x509.Name(
-            [
-                x509.NameAttribute(NameOID.COUNTRY_NAME, "VN"),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Good Web"),
-                x509.NameAttribute(NameOID.COMMON_NAME, domain_name),
-            ]
-        )
+        subject_attrs = []
+        if csr_subject_country:
+            subject_attrs.append(x509.NameAttribute(NameOID.COUNTRY_NAME, csr_subject_country))
+        if csr_subject_org:
+            subject_attrs.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, csr_subject_org))
+        subject_attrs.append(x509.NameAttribute(NameOID.COMMON_NAME, domain_name))
+        subject = x509.Name(subject_attrs)
         issuer = x509.Name(
             [
                 x509.NameAttribute(NameOID.COUNTRY_NAME, "VN"),
@@ -617,7 +663,11 @@ def approve_certificate_request(
         )
         certificate_pem = certificate.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
 
-        subject_dn = f"CN={domain_name}, O=Good Web, C=VN"
+        subject_dn = f"CN={domain_name}"
+        if csr_subject_org:
+            subject_dn += f", O={csr_subject_org}"
+        if csr_subject_country:
+            subject_dn += f", C={csr_subject_country}"
         issuer_dn = "CN=Good Web Root CA, O=Good Web, C=VN"
         signature_algorithm_name = f"{hash_algo.name.upper()}with{root_alg}"
 
@@ -1059,6 +1109,473 @@ def list_revoked_certificates_system() -> Tuple[bool, List[Dict]]:
 
     except Exception:
         return False, []
+
+    finally:
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        conn.close()
+
+
+def list_issued_certificates_for_admin(limit: int = 20) -> Tuple[bool, List[Dict]]:
+    """List currently-issued certificates across the whole system (admin view)."""
+
+    limit = int(limit or 20)
+    if limit <= 0:
+        limit = 20
+    if limit > 200:
+        limit = 200
+
+    conn = get_db_connection()
+    if not conn:
+        return False, []
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT TOP (?)
+                c.id AS certificate_id,
+                c.serial_number,
+                c.subject_dn,
+                c.issuer_dn,
+                c.valid_from,
+                c.valid_to,
+                u.username,
+                co.user_id,
+                co.key_pair_id,
+                r.domain_name,
+                s.status
+            FROM certificate_ownership co
+            INNER JOIN certificates c ON c.id = co.certificate_id
+            INNER JOIN users u ON u.id = co.user_id
+            LEFT JOIN certificate_requests r ON r.id = co.request_id
+            OUTER APPLY (
+                SELECT TOP 1 status
+                FROM certificate_status cs
+                WHERE cs.certificate_id = c.id
+                ORDER BY cs.changed_at DESC, cs.id DESC
+            ) s
+            WHERE s.status = 'issued'
+            ORDER BY c.id DESC
+            """,
+            (limit,),
+        )
+
+        rows = cursor.fetchall() or []
+        columns = [col[0] for col in cursor.description]
+        data: List[Dict] = []
+
+        for row in rows:
+            item = dict(zip(columns, row))
+            for k, v in list(item.items()):
+                if isinstance(v, datetime):
+                    item[k] = v.isoformat(sep=" ", timespec="seconds")
+            # Fallback domain from subject DN if request domain missing
+            if not item.get("domain_name") and item.get("subject_dn"):
+                try:
+                    subj = str(item.get("subject_dn") or "")
+                    parts = [p.strip() for p in subj.split(",")]
+                    for p in parts:
+                        if p.upper().startswith("CN="):
+                            item["domain_name"] = p[3:].strip()
+                            break
+                except Exception:
+                    pass
+            data.append(item)
+
+        return True, data
+
+    except Exception:
+        return False, []
+
+    finally:
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        conn.close()
+
+
+def admin_revoke_certificate(
+    certificate_id: int,
+    admin_id: int,
+    revocation_reason_code: Optional[str] = None,
+) -> Tuple[bool, object]:
+    """Directly revoke a certificate (admin action)."""
+
+    reason_code = (revocation_reason_code or "").strip() or "admin_revoke"
+    reason_code = reason_code[:50]
+
+    conn = get_db_connection()
+    if not conn:
+        return False, "cannot connect to database"
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT TOP 1 id
+            FROM certificates
+            WHERE id = ?
+            """,
+            (int(certificate_id),),
+        )
+        if not cursor.fetchone():
+            return False, "Certificate not found."
+
+        cursor.execute(
+            """
+            SELECT TOP 1 status
+            FROM certificate_status
+            WHERE certificate_id = ?
+            ORDER BY changed_at DESC, id DESC
+            """,
+            (int(certificate_id),),
+        )
+        st = cursor.fetchone()
+        current_status = (st[0] if st else None) or ""
+        if str(current_status).lower() == "revoked":
+            return False, "Certificate has already been revoked."
+
+        cursor.execute(
+            """
+            INSERT INTO certificate_status (
+                certificate_id,
+                status,
+                changed_by_admin_id,
+                revocation_reason_code,
+                crl_id
+            )
+            VALUES (?, 'revoked', ?, ?, NULL)
+            """,
+            (int(certificate_id), int(admin_id), reason_code),
+        )
+
+        conn.commit()
+        return True, {"certificate_id": int(certificate_id), "status": "revoked"}
+
+    except Exception as exc:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return False, f"Error revoking certificate: {exc}"
+
+    finally:
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        conn.close()
+
+
+def admin_renew_certificate(
+    certificate_id: int,
+    admin_id: int,
+) -> Tuple[bool, object]:
+    """Renew a certificate by issuing a new certificate with same key pair and CN.
+
+    Creates a new certificate record + status 'issued' + ownership mapping.
+    """
+
+    conn = get_db_connection()
+    if not conn:
+        return False, "cannot connect to database"
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+
+        settings = _load_system_settings(cursor)
+        if not settings:
+            return False, "System settings not configured for certificate generation."
+
+        # Ensure Root CA certificate exists
+        cursor.execute(
+            """
+            SELECT TOP 1 c.id, c.certificate_pem
+            FROM certificates c
+            INNER JOIN certificate_ownership co ON co.certificate_id = c.id
+            INNER JOIN key_pairs kp ON kp.id = co.key_pair_id
+            INNER JOIN certificate_status cs ON cs.certificate_id = c.id
+            WHERE kp.owner_type = ?
+              AND cs.status = 'issued'
+            ORDER BY c.id DESC
+            """,
+            ("root_ca",),
+        )
+        root_cert_row = cursor.fetchone()
+        if not root_cert_row:
+            return False, "Root CA certificate not found. Please create Root CA certificate first."
+        root_cert_id, _root_cert_pem = root_cert_row
+
+        # Load active Root CA key pair (must have private key for signing)
+        cursor.execute(
+            """
+            SELECT TOP 1 id, private_key_encrypted, algorithm
+            FROM key_pairs
+            WHERE owner_type = ?
+              AND status = 'active'
+            ORDER BY id DESC
+            """,
+            ("root_ca",),
+        )
+        root_kp_row = cursor.fetchone()
+        if not root_kp_row:
+            return False, "No active Root CA key pair found. Please generate Root CA key pair first."
+
+        root_key_pair_id, root_private_enc, root_alg = root_kp_row
+        root_alg = (root_alg or "RSA").upper()
+        if root_alg != "RSA":
+            root_alg = "RSA"
+
+        # Load certificate + ownership
+        cursor.execute(
+            """
+            SELECT TOP 1
+                c.subject_dn,
+                co.user_id,
+                co.key_pair_id
+            FROM certificates c
+            INNER JOIN certificate_ownership co ON co.certificate_id = c.id
+            WHERE c.id = ?
+            ORDER BY co.id DESC
+            """,
+            (int(certificate_id),),
+        )
+        cert_row = cursor.fetchone()
+        if not cert_row:
+            return False, "Certificate not found."
+
+        subject_dn, user_id, key_pair_id = cert_row
+        if user_id is None or key_pair_id is None:
+            return False, "Certificate ownership data missing."
+
+        # Only renew if current status is issued
+        cursor.execute(
+            """
+            SELECT TOP 1 status
+            FROM certificate_status
+            WHERE certificate_id = ?
+            ORDER BY changed_at DESC, id DESC
+            """,
+            (int(certificate_id),),
+        )
+        st = cursor.fetchone()
+        current_status = (st[0] if st else None) or ""
+        if str(current_status).lower() != "issued":
+            return False, f"Certificate is not in 'issued' status (current: {current_status})."
+
+        # Get user's public key (from key pair)
+        cursor.execute(
+            """
+            SELECT public_key
+            FROM key_pairs
+            WHERE id = ?
+              AND owner_type = ?
+            """,
+            (int(key_pair_id), "customer"),
+        )
+        kp_row = cursor.fetchone()
+        if not kp_row or not kp_row[0]:
+            return False, "Key pair not found for renewal."
+
+        public_pem_bytes = str(kp_row[0]).encode("utf-8")
+        try:
+            user_public_key = serialization.load_pem_public_key(public_pem_bytes)
+        except Exception as exc:
+            return False, f"Cannot load user public key: {exc}"
+
+        # Parse CN/O/C from subject_dn to preserve subject identity
+        domain_name = None
+        subject_org = None
+        subject_country = None
+        try:
+            subj = str(subject_dn or "")
+            parts = [p.strip() for p in subj.split(",")]
+            for p in parts:
+                if p.upper().startswith("CN="):
+                    domain_name = p[3:].strip() or None
+                elif p.upper().startswith("O="):
+                    subject_org = p.split("=", 1)[1].strip() or None
+                elif p.upper().startswith("C="):
+                    cc = p.split("=", 1)[1].strip().upper() if "=" in p else ""
+                    if len(cc) == 2 and cc.isalpha():
+                        subject_country = cc
+        except Exception:
+            domain_name = None
+
+        if not domain_name:
+            return False, "Cannot determine domain (CN) from existing certificate."
+
+        # Load Root CA private key
+        private_pem = _decrypt_private_key_pem(root_private_enc)
+        try:
+            root_private_key = load_pem_private_key(private_pem, password=None)
+        except Exception as exc:
+            return False, f"Cannot load Root CA private key from database: {exc}"
+
+        hash_algo = _get_hash_algorithm(settings)
+        now = datetime.utcnow()
+        validity_days = settings.get("default_validity_days") or 365
+        not_before = now
+        not_after = now + timedelta(days=int(validity_days))
+        serial_number = x509.random_serial_number()
+
+        subject_attrs = []
+        if subject_country:
+            subject_attrs.append(x509.NameAttribute(NameOID.COUNTRY_NAME, subject_country))
+        if subject_org:
+            subject_attrs.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, subject_org))
+        subject_attrs.append(x509.NameAttribute(NameOID.COMMON_NAME, domain_name))
+        subject = x509.Name(subject_attrs)
+        issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COUNTRY_NAME, "VN"),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Good Web"),
+                x509.NameAttribute(NameOID.COMMON_NAME, "Good Web Root CA"),
+            ]
+        )
+
+        builder = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(user_public_key)
+            .serial_number(serial_number)
+            .not_valid_before(not_before)
+            .not_valid_after(not_after)
+            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+            .add_extension(
+                x509.SubjectAlternativeName([x509.DNSName(domain_name)]),
+                critical=False,
+            )
+            .add_extension(
+                x509.KeyUsage(
+                    digital_signature=True,
+                    content_commitment=False,
+                    key_encipherment=True,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    key_cert_sign=False,
+                    crl_sign=False,
+                    encipher_only=False,
+                    decipher_only=False,
+                ),
+                critical=True,
+            )
+            .add_extension(
+                x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]),
+                critical=False,
+            )
+        )
+
+        certificate = builder.sign(private_key=root_private_key, algorithm=hash_algo)
+        public_key_der = certificate.public_key().public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        certificate_pem = certificate.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
+
+        subject_dn_new = f"CN={domain_name}"
+        if subject_org:
+            subject_dn_new += f", O={subject_org}"
+        if subject_country:
+            subject_dn_new += f", C={subject_country}"
+        issuer_dn = "CN=Good Web Root CA, O=Good Web, C=VN"
+        signature_algorithm_name = f"{hash_algo.name.upper()}with{root_alg}"
+
+        cursor.execute(
+            """
+            INSERT INTO certificates (
+                version,
+                serial_number,
+                subject_dn,
+                issuer_dn,
+                issuer_certificate_id,
+                valid_from,
+                valid_to,
+                public_key,
+                certificate_pem,
+                issuer_unique_identifier,
+                subject_unique_identifier,
+                signature_value,
+                signature_algorithm
+            )
+            OUTPUT INSERTED.id
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                3,
+                str(serial_number),
+                subject_dn_new,
+                issuer_dn,
+                int(root_cert_id),
+                not_before,
+                not_after,
+                public_key_der,
+                certificate_pem,
+                None,
+                None,
+                certificate.signature,
+                signature_algorithm_name,
+            ),
+        )
+        new_cert_row = cursor.fetchone()
+        if not new_cert_row:
+            return False, "Failed to insert renewed certificate."
+        new_certificate_id = int(new_cert_row[0])
+
+        cursor.execute(
+            """
+            INSERT INTO certificate_status (
+                certificate_id,
+                status,
+                changed_by_admin_id,
+                revocation_reason_code,
+                crl_id
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (int(new_certificate_id), "issued", int(admin_id), None, None),
+        )
+
+        cursor.execute(
+            """
+            INSERT INTO certificate_ownership (
+                certificate_id,
+                user_id,
+                key_pair_id,
+                request_id
+            )
+            VALUES (?, ?, ?, NULL)
+            """,
+            (int(new_certificate_id), int(user_id), int(key_pair_id)),
+        )
+
+        conn.commit()
+        return True, {
+            "old_certificate_id": int(certificate_id),
+            "new_certificate_id": int(new_certificate_id),
+            "domain_name": domain_name,
+            "key_pair_id": int(key_pair_id),
+            "root_key_pair_id": int(root_key_pair_id),
+        }
+
+    except Exception as exc:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return False, f"Error renewing certificate: {exc}"
 
     finally:
         if cursor is not None:

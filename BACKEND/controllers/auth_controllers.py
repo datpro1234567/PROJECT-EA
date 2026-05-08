@@ -23,8 +23,14 @@ from services.key_pair_services import (
     generate_user_key_pair,
     get_user_key_pairs,
     get_user_private_key_pem,
+    get_system_settings,
+    update_system_settings,
 )
 from services.admin_monitoring_services import get_system_summary, list_recent_activity
+from services.uploaded_certificate_services import (
+    list_uploaded_certificates_for_user,
+    upload_certificate_for_user_tracking,
+)
 from services.certificate_request_services import (
     create_issue_certificate_request,
     generate_csr_for_user_keypair,
@@ -34,6 +40,9 @@ from services.certificate_request_services import (
     reject_certificate_request,
     create_revoke_certificate_request,
     list_revoked_certificates_system,
+    list_issued_certificates_for_admin,
+    admin_revoke_certificate,
+    admin_renew_certificate,
     list_certificates_for_user,
     get_user_certificate_pem,
 )
@@ -221,6 +230,8 @@ def api_create_issue_certificate_request():
 
     data = request.get_json(silent=True) or request.form
     domain_name = (data.get("domain_name") or "").strip()
+    subject_o = (data.get("subject_o") or "").strip()
+    subject_c = (data.get("subject_c") or "").strip()
 
     key_pair_id_raw = data.get("key_pair_id")
     try:
@@ -250,6 +261,8 @@ def api_create_issue_certificate_request():
         int(key_pair_id),
         domain_name,
         private_key_pem=private_key_pem,
+        subject_o=subject_o,
+        subject_c=subject_c,
     )
     if not ok:
         return jsonify({"success": False, "message": str(csr_payload)}), 400
@@ -310,7 +323,127 @@ def view_admin_dashboard():
     if not ok_act:
         activity = []
 
-    return render_template("admin_dashboard.html", summary=summary, activity=activity)
+    ok_issued, issued = list_issued_certificates_for_admin(20)
+    if not ok_issued:
+        issued = []
+
+    return render_template(
+        "admin_dashboard.html",
+        summary=summary,
+        activity=activity,
+        issued_certificates=issued,
+    )
+
+
+@auth_bp.route("/admin/settings", methods=["GET"])
+@login_required
+def view_admin_settings():
+    if session.get("role") != "admin":
+        return redirect(url_for("auth.home"))
+
+    ok, settings = get_system_settings()
+    if not ok:
+        settings = {
+            "default_key_algorithm": "RSA",
+            "default_hash_algorithm": "SHA256",
+            "default_key_size": 2048,
+            "default_validity_days": 365,
+            "error": str(settings),
+        }
+
+    return render_template("admin_settings.html", settings=settings)
+
+
+@auth_bp.route("/api/admin/settings", methods=["GET"])
+@login_required
+def api_admin_get_settings():
+    if session.get("role") != "admin":
+        return (
+            jsonify({"success": False, "message": "You do not have permission to perform this action."}),
+            403,
+        )
+
+    ok, settings = get_system_settings()
+    if not ok:
+        return jsonify({"success": False, "message": str(settings)}), 500
+    return jsonify({"success": True, "settings": settings}), 200
+
+
+@auth_bp.route("/api/admin/settings", methods=["POST"])
+@login_required
+def api_admin_update_settings():
+    if session.get("role") != "admin":
+        return (
+            jsonify({"success": False, "message": "You do not have permission to perform this action."}),
+            403,
+        )
+
+    data = request.get_json(silent=True) or request.form
+    algo = (data.get("default_key_algorithm") or "RSA").strip()
+    h = (data.get("default_hash_algorithm") or "SHA256").strip()
+    key_size = data.get("default_key_size")
+    validity_days = data.get("default_validity_days")
+
+    success, message = update_system_settings(algo, h, key_size, validity_days)
+    status = 200 if success else 400
+    return jsonify({"success": success, "message": message}), status
+
+
+@auth_bp.route("/api/admin/certificates/issued", methods=["GET"])
+@login_required
+def api_admin_list_issued_certificates():
+    if session.get("role") != "admin":
+        return (
+            jsonify({"success": False, "message": "You do not have permission to perform this action."}),
+            403,
+        )
+
+    try:
+        limit = int(request.args.get("limit") or 20)
+    except Exception:
+        limit = 20
+
+    success, items = list_issued_certificates_for_admin(limit)
+    if not success:
+        return jsonify({"success": False, "message": "Could not load certificates."}), 500
+    return jsonify({"success": True, "items": items}), 200
+
+
+@auth_bp.route("/api/admin/certificates/<int:certificate_id>/revoke", methods=["POST"])
+@login_required
+def api_admin_revoke_certificate(certificate_id: int):
+    if session.get("role") != "admin":
+        return (
+            jsonify({"success": False, "message": "You do not have permission to perform this action."}),
+            403,
+        )
+
+    data = request.get_json(silent=True) or request.form
+    reason_code = (data.get("reason_code") or data.get("reason") or "").strip() or None
+
+    admin_id = session.get("user_id")
+    success, payload = admin_revoke_certificate(int(certificate_id), int(admin_id), revocation_reason_code=reason_code)
+    if not success:
+        status = 404 if str(payload) == "Certificate not found." else 400
+        return jsonify({"success": False, "message": str(payload)}), status
+    return jsonify({"success": True, "message": "Revoked.", "data": payload}), 200
+
+
+@auth_bp.route("/api/admin/certificates/<int:certificate_id>/renew", methods=["POST"])
+@login_required
+def api_admin_renew_certificate(certificate_id: int):
+    if session.get("role") != "admin":
+        return (
+            jsonify({"success": False, "message": "You do not have permission to perform this action."}),
+            403,
+        )
+
+    admin_id = session.get("user_id")
+    success, payload = admin_renew_certificate(int(certificate_id), int(admin_id))
+    if not success:
+        status = 404 if str(payload) == "Certificate not found." else 400
+        return jsonify({"success": False, "message": str(payload)}), status
+    return jsonify({"success": True, "message": "Renewed.", "data": payload}), 200
 
 
 @auth_bp.route("/certificate/revoke", methods=["GET"])
@@ -328,6 +461,73 @@ def view_certificate_revoke_request():
     issued = [c for c in (certs or []) if str(c.get("status") or "").lower() == "issued"]
 
     return render_template("revoke_certificate.html", certificates=issued)
+
+
+@auth_bp.route("/certificates/tracked", methods=["GET"])
+@login_required
+def view_uploaded_certificates():
+    if session.get("role") != "customer":
+        return redirect(url_for("auth.home"))
+
+    user_id = session.get("user_id")
+    ok, items = list_uploaded_certificates_for_user(int(user_id), limit=50)
+    if not ok:
+        items = []
+    return render_template("uploaded_certificates.html", items=items)
+
+
+@auth_bp.route("/api/user/uploaded-certificates", methods=["GET"])
+@login_required
+def api_list_uploaded_certificates():
+    if session.get("role") != "customer":
+        return (
+            jsonify({"success": False, "message": "Only customer users can view tracked certificates."}),
+            403,
+        )
+
+    user_id = session.get("user_id")
+    try:
+        limit = int(request.args.get("limit") or 50)
+    except Exception:
+        limit = 50
+
+    ok, items = list_uploaded_certificates_for_user(int(user_id), limit=limit)
+    if not ok:
+        return jsonify({"success": False, "message": "Could not load tracked certificates."}), 500
+    return jsonify({"success": True, "items": items}), 200
+
+
+@auth_bp.route("/api/user/uploaded-certificates", methods=["POST"])
+@login_required
+def api_upload_certificate_for_tracking():
+    if session.get("role") != "customer":
+        return (
+            jsonify({"success": False, "message": "Only customer users can upload tracked certificates."}),
+            403,
+        )
+
+    upload = request.files.get("certificate_file")
+    if not upload:
+        return jsonify({"success": False, "message": "Certificate file is required."}), 400
+
+    try:
+        cert_bytes = upload.read() or b""
+    except Exception:
+        cert_bytes = b""
+
+    if not cert_bytes:
+        return jsonify({"success": False, "message": "Certificate file is empty."}), 400
+
+    file_name = (upload.filename or "certificate.pem").strip() or "certificate.pem"
+
+    user_id = session.get("user_id")
+    ok, payload = upload_certificate_for_user_tracking(int(user_id), file_name, cert_bytes)
+    if not ok:
+        return jsonify({"success": False, "message": str(payload)}), 400
+
+    msg = payload.get("message") if isinstance(payload, dict) else None
+    status_code = 200 if (msg and "already" in str(msg).lower()) else 201
+    return jsonify({"success": True, "message": msg or "Uploaded.", "data": payload}), status_code
 
 
 @auth_bp.route("/api/user/certificate-requests/revoke", methods=["POST"])
