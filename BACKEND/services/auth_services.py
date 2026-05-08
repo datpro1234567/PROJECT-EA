@@ -2,23 +2,68 @@ from db import get_db_connection
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
-def create_user(username, email, password):
+def _users_email_column_is_nullable(cursor):
+    """Return True/False if users.email exists and is nullable; None if missing."""
+
+    try:
+        cursor.execute(
+            """
+            SELECT IS_NULLABLE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo'
+              AND TABLE_NAME = 'users'
+              AND COLUMN_NAME = 'email'
+            """
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return str(row[0]).strip().upper() == "YES"
+    except Exception:
+        # If metadata query fails, assume email is required to be safe.
+        return False
+
+
+def create_user(username, password):
     conn = get_db_connection()
     if not conn:
         print("Error creating user: cannot connect to database")
         return None
 
+    cursor = None
     try:
         cursor = conn.cursor()
         hashed_pw = generate_password_hash(password)
         default_role = "customer"
-        cursor.execute(
-            """
-            INSERT INTO users (username, password_hash, role, email)
-            VALUES (?, ?, ?, ?)
-            """,
-            (username, hashed_pw, default_role, email),
-        )
+
+        email_nullable = _users_email_column_is_nullable(cursor)
+        if email_nullable is None:
+            cursor.execute(
+                """
+                INSERT INTO users (username, password_hash, role)
+                VALUES (?, ?, ?)
+                """,
+                (username, hashed_pw, default_role),
+            )
+        elif email_nullable:
+            # Column exists but is nullable: omit it entirely.
+            cursor.execute(
+                """
+                INSERT INTO users (username, password_hash, role)
+                VALUES (?, ?, ?)
+                """,
+                (username, hashed_pw, default_role),
+            )
+        else:
+            # Backward compatibility: old DB schema requires a NOT NULL email.
+            placeholder_email = f"{username}@no-email.local"
+            cursor.execute(
+                """
+                INSERT INTO users (username, password_hash, role, email)
+                VALUES (?, ?, ?, ?)
+                """,
+                (username, hashed_pw, default_role, placeholder_email),
+            )
         conn.commit()
         return True
     except Exception as e:
@@ -26,7 +71,8 @@ def create_user(username, email, password):
         conn.rollback()
         return False
     finally:
-        cursor.close()
+        if cursor is not None:
+            cursor.close()
         conn.close()
 
 
@@ -67,25 +113,24 @@ def authenticate_user(username, password):
         conn.close()
 
 
-def check_user_exists(username, email):
+def check_user_exists(username):
     conn = get_db_connection()
     if not conn:
         print("Error checking user existence: cannot connect to database")
         return None
 
+    cursor = None
     try:
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*) FROM users WHERE username = ? OR email = ?",
-            (username, email),
-        )
+        cursor.execute("SELECT COUNT(*) FROM users WHERE username = ?", (username,))
         count = cursor.fetchone()[0]
         return count > 0
     except Exception as e:
         print(f"Error checking user existence: {e}")
         return None
     finally:
-        cursor.close()
+        if cursor is not None:
+            cursor.close()
         conn.close()
 
 

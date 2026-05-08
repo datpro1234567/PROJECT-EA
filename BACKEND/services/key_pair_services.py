@@ -11,6 +11,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.fernet import Fernet
 from cryptography.x509.oid import NameOID
 
+# cho seed tạo key pair
+# module
 
 def _load_system_settings(cursor) -> Optional[Dict]:
 
@@ -518,7 +520,17 @@ def get_user_key_pairs(user_id: int, owner_type: str = "customer") -> Tuple[bool
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, public_key, algorithm, key_size, status
+            SELECT
+                id,
+                public_key,
+                algorithm,
+                key_size,
+                status,
+                CASE
+                    WHEN private_key_encrypted IS NOT NULL AND DATALENGTH(private_key_encrypted) > 0
+                        THEN CAST(1 AS BIT)
+                    ELSE CAST(0 AS BIT)
+                END AS can_download_private_key
             FROM key_pairs
             WHERE owner_user_id = ?
               AND owner_type = ?
@@ -548,9 +560,14 @@ def get_user_private_key_pem(
     key_pair_id: int,
     owner_type: str = "customer",
 ) -> Tuple[bool, object]:
-    """Load and decrypt a user's private key PEM for download.
+    """Load and decrypt a user's private key PEM for one-time download.
 
-    On success returns (True, private_pem_bytes), otherwise (False, error_message).
+    - First successful call returns the private key bytes and removes it from the database.
+    - Subsequent calls return an "already downloaded" error.
+
+    On success returns (True, private_pem_bytes).
+    On failure returns (False, error_payload) where error_payload is either a string
+    or a dict containing {error, message, http_status}.
     """
 
     if owner_type not in {"admin", "customer"}:
@@ -562,6 +579,70 @@ def get_user_private_key_pem(
 
     try:
         cursor = conn.cursor()
+
+        # Atomically consume the private key (return old value then delete it).
+        private_enc = None
+        try:
+            cursor.execute(
+                """
+                UPDATE key_pairs
+                SET private_key_encrypted = NULL
+                OUTPUT DELETED.private_key_encrypted
+                WHERE id = ?
+                  AND owner_user_id = ?
+                  AND owner_type = ?
+                  AND private_key_encrypted IS NOT NULL
+                  AND DATALENGTH(private_key_encrypted) > 0
+                """,
+                (int(key_pair_id), int(user_id), owner_type),
+            )
+            consumed = cursor.fetchone()
+            if consumed and consumed[0] is not None:
+                private_enc = consumed[0]
+                conn.commit()
+        except Exception:
+            # If the database column is NOT NULL, fall back to wiping the bytes (0x) instead of NULL.
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
+            cursor.execute(
+                """
+                UPDATE key_pairs
+                SET private_key_encrypted = 0x
+                OUTPUT DELETED.private_key_encrypted
+                WHERE id = ?
+                  AND owner_user_id = ?
+                  AND owner_type = ?
+                  AND DATALENGTH(private_key_encrypted) > 0
+                """,
+                (int(key_pair_id), int(user_id), owner_type),
+            )
+            consumed = cursor.fetchone()
+            if consumed and consumed[0] is not None:
+                private_enc = consumed[0]
+                conn.commit()
+
+        if private_enc is not None:
+            private_pem = _decrypt_private_key_pem(private_enc)
+            if not private_pem:
+                return (
+                    False,
+                    {
+                        "error": "not_available",
+                        "message": "Private key is not available.",
+                        "http_status": 404,
+                    },
+                )
+            return True, private_pem
+
+        # No rows consumed: check why (not found, no access, already downloaded).
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
         cursor.execute(
             """
             SELECT owner_user_id, owner_type, private_key_encrypted
@@ -572,15 +653,40 @@ def get_user_private_key_pem(
         )
         row = cursor.fetchone()
         if not row:
-            return False, "Key pair not found."
+            return False, {"error": "not_found", "message": "Key pair not found.", "http_status": 404}
 
-        owner_user_id, db_owner_type, private_enc = row
+        owner_user_id, db_owner_type, existing_private = row
+        if owner_user_id is None:
+            return False, {"error": "forbidden", "message": "You do not have access to this key pair.", "http_status": 403}
 
         if int(owner_user_id) != int(user_id) or (db_owner_type or "").lower() != owner_type.lower():
-            return False, "You do not have access to this key pair."
+            return False, {"error": "forbidden", "message": "You do not have access to this key pair.", "http_status": 403}
 
-        private_pem = _decrypt_private_key_pem(private_enc)
-        return True, private_pem
+        # Owned by user: determine if already downloaded.
+        has_bytes = False
+        try:
+            has_bytes = existing_private is not None and len(bytes(existing_private)) > 0
+        except Exception:
+            has_bytes = existing_private is not None
+
+        if not has_bytes:
+            return (
+                False,
+                {
+                    "error": "already_downloaded",
+                    "message": "Private key has already been downloaded.",
+                    "http_status": 410,
+                },
+            )
+
+        return (
+            False,
+            {
+                "error": "download_failed",
+                "message": "Unable to download private key. Please try again.",
+                "http_status": 400,
+            },
+        )
 
     except Exception as exc:
         return False, f"Error loading private key: {exc}"

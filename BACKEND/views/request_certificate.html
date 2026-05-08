@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Certificate Request</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='tree.png') }}"
+    />
+  </head>
+  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="max-width:720px; margin:24px auto; padding:0 16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0; font-size:20px;">Yêu cầu cấp chứng chỉ</h1>
+        <button type="button" id="back-home-btn" style="padding:8px 12px; font-size:14px; cursor:pointer;">Về trang chủ</button>
+      </div>
+
+      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+        {% if not keypairs or keypairs|length == 0 %}
+          <div style="font-size:14px;">
+            Bạn chưa có key pair nào. Hãy quay về trang chủ để tạo key pair trước.
+          </div>
+        {% else %}
+          <form id="certificate-request-form">
+            <div style="margin-bottom:12px;">
+              <label for="domain_name" style="display:block; margin-bottom:6px; font-size:14px;">Domain</label>
+              <input
+                type="text"
+                id="domain_name"
+                name="domain_name"
+                placeholder="example.com"
+                style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
+                required
+              />
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <label for="key_pair_id" style="display:block; margin-bottom:6px; font-size:14px;">Chọn key pair</label>
+              <select
+                id="key_pair_id"
+                name="key_pair_id"
+                style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
+                required
+              >
+                {% for kp in keypairs %}
+                  <option value="{{ kp.id }}">ID {{ kp.id }} - {{ kp.algorithm }} {{ kp.key_size }} ({{ kp.status }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label for="private_key_file" style="display:block; margin-bottom:6px; font-size:14px;">Private key (upload từ máy)</label>
+              <input
+                type="file"
+                id="private_key_file"
+                name="private_key_file"
+                accept=".pem,.key,text/plain"
+                style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
+                required
+              />
+              <div style="margin-top:6px; font-size:12px; color:#6b7280;">
+                Lưu ý: private key sẽ được gửi lên server để tạo CSR.
+              </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label for="csr_pem" style="display:block; margin-bottom:6px; font-size:14px;">CSR tạo ra</label>
+              <textarea
+                id="csr_pem"
+                name="csr_pem"
+                rows="8"
+                placeholder="CSR sẽ hiển thị ở đây sau khi gửi"
+                style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px; font-family:monospace; font-size:12px;"
+                readonly
+              ></textarea>
+            </div>
+
+            <button type="submit" style="padding:8px 16px; font-size:14px; cursor:pointer;">Tạo CSR &amp; Gửi yêu cầu</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ url_for('static', filename='js/request_certificate.js') }}"></script>
+    <script>
+      document.getElementById('back-home-btn')?.addEventListener('click', () => {
+        window.location.href = '/';
+      });
+    </script>
+  </body>
+</html>

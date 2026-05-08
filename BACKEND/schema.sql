@@ -81,8 +81,7 @@ CREATE TABLE users (
 	id BIGINT IDENTITY(1,1) PRIMARY KEY,
 	username NVARCHAR(100) NOT NULL UNIQUE,
 	password_hash NVARCHAR(255) NOT NULL,
-	role NVARCHAR(20) NOT NULL CHECK (role IN ('admin', 'customer')),
-	email NVARCHAR(255) NOT NULL UNIQUE
+	role NVARCHAR(20) NOT NULL CHECK (role IN ('admin', 'customer'))
 );
 
 -- KEY_PAIRS: key pairs for customers and Root CA
@@ -91,7 +90,7 @@ CREATE TABLE key_pairs (
 	owner_user_id BIGINT NULL,
 	owner_type NVARCHAR(20) NOT NULL CHECK (owner_type IN ('admin', 'customer', 'root_ca', 'system')),
 	public_key NVARCHAR(MAX) NOT NULL,
-	private_key_encrypted VARBINARY(MAX) NOT NULL,
+	private_key_encrypted VARBINARY(MAX) NULL,
 	algorithm NVARCHAR(50) NOT NULL,
 	key_size INT NOT NULL,
 	purpose NVARCHAR(100) NOT NULL,
@@ -326,20 +325,18 @@ ALTER TABLE activity_logs
 		FOREIGN KEY (user_id) REFERENCES users(id);
 
 
-INSERT INTO users (username, password_hash, role, email)
+INSERT INTO users (username, password_hash, role)
 VALUES (
     'admin',
 	--Admin1
     'scrypt:32768:8:1$CHqqcMBONJpVO7Va$f6551eb9836a282234feb71668802a5f58d0b7b176823010e83b83d1a0365a6dc8783765b6a117ded87bb77ddefeff72100d38a9bb62dffb12bc6bd82d875184',
-    'admin',
-    'admin@example.com'
+	'admin'
 );
 
-INSERT INTO users (username, password_hash, role, email)
+INSERT INTO users (username, password_hash, role)
 VALUES (
     'user',
 	--Admin1
     'scrypt:32768:8:1$CHqqcMBONJpVO7Va$f6551eb9836a282234feb71668802a5f58d0b7b176823010e83b83d1a0365a6dc8783765b6a117ded87bb77ddefeff72100d38a9bb62dffb12bc6bd82d875184',
-    'customer',
-    'user@example.com'
+	'customer'
 );

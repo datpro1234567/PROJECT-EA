@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Certificate Requests</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='tree.png') }}"
+    />
+  </head>
+  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="max-width:1100px; margin:24px auto; padding:0 16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0; font-size:20px;">Danh sách yêu cầu chứng chỉ</h1>
+        <button type="button" id="back-home-btn" style="padding:8px 12px; font-size:14px; cursor:pointer;">Về trang chủ</button>
+      </div>
+
+      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+        {% if not requests or requests|length == 0 %}
+          <div style="font-size:14px;">Chưa có yêu cầu nào.</div>
+        {% else %}
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">ID</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">User</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Type</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Status</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Domain</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">KeyPair ID</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Reason</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Submitted</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Reviewed</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Note</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in requests %}
+                  <tr>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.id }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.username }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.request_type }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.request_status }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.domain_name }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.key_pair_id }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.reason or '' }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.submitted_at }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.reviewed_at or '' }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ r.review_note or '' }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">
+                      {% if r.request_status == 'pending' %}
+                        <button
+                          type="button"
+                          class="approve-btn"
+                          data-request-id="{{ r.id }}"
+                          data-request-type="{{ r.request_type }}"
+                          style="padding:6px 10px; font-size:12px; cursor:pointer; margin-right:6px;"
+                        >
+                          Chấp nhận
+                        </button>
+                        <button
+                          type="button"
+                          class="reject-btn"
+                          data-request-id="{{ r.id }}"
+                          style="padding:6px 10px; font-size:12px; cursor:pointer;"
+                        >
+                          Từ chối
+                        </button>
+                      {% else %}
+                        <span style="color:#6b7280;">—</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+      document.getElementById('back-home-btn')?.addEventListener('click', () => {
+        window.location.href = '/';
+      });
+
+      async function postReview(requestId, action, reviewNote) {
+        const url = `/api/admin/certificate-requests/${requestId}/${action}`;
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ review_note: reviewNote || '' })
+        });
+
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || !result.success) {
+          throw new Error(result.message || 'Request failed.');
+        }
+        return result;
+      }
+
+      document.querySelectorAll('.approve-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const requestId = btn.getAttribute('data-request-id');
+          const requestType = (btn.getAttribute('data-request-type') || '').toLowerCase();
+
+          const actionText = requestType === 'revoke'
+            ? 'sẽ được thu hồi (revoked)'
+            : 'sẽ được xử lý (approve)';
+
+          const confirmed = await Swal.fire({
+            title: 'Chấp nhận yêu cầu?',
+            text: `Request ID ${requestId} ${actionText}.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Chấp nhận',
+            cancelButtonText: 'Hủy',
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#6b7280'
+          }).then((r) => r.isConfirmed);
+
+          if (!confirmed) return;
+
+          btn.disabled = true;
+          try {
+            await postReview(requestId, 'approve', '');
+            await Swal.fire({
+              icon: 'success',
+              title: 'Đã chấp nhận',
+              timer: 900,
+              showConfirmButton: false
+            });
+            window.location.reload();
+          } catch (err) {
+            btn.disabled = false;
+            Swal.fire({
+              icon: 'error',
+              title: 'Lỗi',
+              text: String(err?.message || err || 'Không thể cập nhật yêu cầu.'),
+              confirmButtonColor: '#ef4444'
+            });
+          }
+        });
+      });
+
+      document.querySelectorAll('.reject-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const requestId = btn.getAttribute('data-request-id');
+
+          const result = await Swal.fire({
+            title: 'Từ chối yêu cầu',
+            text: `Nhập lý do (tuỳ chọn) cho request ID ${requestId}.`,
+            input: 'textarea',
+            inputPlaceholder: 'Lý do... (tuỳ chọn)',
+            showCancelButton: true,
+            confirmButtonText: 'Từ chối',
+            cancelButtonText: 'Hủy',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280'
+          });
+
+          if (!result.isConfirmed) return;
+          const note = (result.value || '').toString();
+
+          btn.disabled = true;
+          try {
+            await postReview(requestId, 'reject', note);
+            await Swal.fire({
+              icon: 'success',
+              title: 'Đã từ chối',
+              timer: 900,
+              showConfirmButton: false
+            });
+            window.location.reload();
+          } catch (err) {
+            btn.disabled = false;
+            Swal.fire({
+              icon: 'error',
+              title: 'Lỗi',
+              text: String(err?.message || err || 'Không thể cập nhật yêu cầu.'),
+              confirmButtonColor: '#ef4444'
+            });
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

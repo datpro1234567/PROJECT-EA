@@ -36,6 +36,20 @@
       >
         Create Root Certificate
       </button>
+      <button
+        id="view-certificate-requests-btn"
+        type="button"
+        style="padding:8px 16px; font-size:14px; cursor:pointer;"
+      >
+        Certificate Requests
+      </button>
+      <button
+        id="view-revocations-btn"
+        type="button"
+        style="padding:8px 16px; font-size:14px; cursor:pointer;"
+      >
+        Revocations
+      </button>
       {% elif session.get('role') == 'customer' %}
       <button
         id="generate-user-keypair-btn"
@@ -43,6 +57,27 @@
         style="padding:8px 16px; font-size:14px; cursor:pointer;"
       >
         Generate My Key Pair
+      </button>
+      <button
+        id="request-certificate-btn"
+        type="button"
+        style="padding:8px 16px; font-size:14px; cursor:pointer;"
+      >
+        Request Certificate
+      </button>
+      <button
+        id="revoke-certificate-btn"
+        type="button"
+        style="padding:8px 16px; font-size:14px; cursor:pointer;"
+      >
+        Revoke Certificate
+      </button>
+      <button
+        id="view-revocations-btn"
+        type="button"
+        style="padding:8px 16px; font-size:14px; cursor:pointer;"
+      >
+        Revocations
       </button>
       {% endif %}
     </div>
@@ -96,6 +131,14 @@
     >
       <h2 style="margin-bottom:16px; font-size:18px;">My Key Pairs</h2>
       <div id="user-keypairs-list" style="font-size:13px; text-align:left; white-space:pre-wrap;"></div>
+    </div>
+
+    <div
+      id="user-certificates-section"
+      style="max-width:800px; margin:0 auto 40px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;"
+    >
+      <h2 style="margin-bottom:16px; font-size:18px;">My Certificates</h2>
+      <div id="user-certificates-list" style="font-size:13px; text-align:left; white-space:pre-wrap;"></div>
     </div>
     {% endif %}
 

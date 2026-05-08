@@ -2,8 +2,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const generateKeyPairBtn = document.getElementById("generate-root-keypair-btn");
   const generateRootCertBtn = document.getElementById("generate-root-certificate-btn");
   const generateUserKeyPairBtn = document.getElementById("generate-user-keypair-btn");
+  const requestCertificateBtn = document.getElementById("request-certificate-btn");
+  const viewCertificateRequestsBtn = document.getElementById("view-certificate-requests-btn");
+  const revokeCertificateBtn = document.getElementById("revoke-certificate-btn");
+  const viewRevocationsBtn = document.getElementById("view-revocations-btn");
 
   const userKeypairsList = document.getElementById("user-keypairs-list");
+  const userCertificatesList = document.getElementById("user-certificates-list");
 
   const changePasswordForm = document.getElementById("change-password-form");
 
@@ -59,12 +64,65 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const downloadBtn = document.createElement("button");
         downloadBtn.type = "button";
-        downloadBtn.textContent = "Download Private Key";
+        const canDownloadPrivateKey = Boolean(key.can_download_private_key);
+
+        downloadBtn.textContent = canDownloadPrivateKey
+          ? "Download Private Key"
+          : "Đã tải";
+
+        downloadBtn.disabled = !canDownloadPrivateKey;
         downloadBtn.style.padding = "4px 10px";
         downloadBtn.style.fontSize = "12px";
-        downloadBtn.style.cursor = "pointer";
-        downloadBtn.addEventListener("click", () => {
-          window.location.href = `/api/user/keypairs/${key.id}/private`;
+        downloadBtn.style.cursor = canDownloadPrivateKey ? "pointer" : "not-allowed";
+        downloadBtn.style.opacity = canDownloadPrivateKey ? "1" : "0.6";
+        downloadBtn.addEventListener("click", async () => {
+          if (downloadBtn.disabled) return;
+
+          downloadBtn.disabled = true;
+          downloadBtn.style.cursor = "not-allowed";
+          downloadBtn.style.opacity = "0.6";
+
+          try {
+            const res = await fetch(`/api/user/keypairs/${key.id}/private`, {
+              method: "GET",
+              headers: {
+                "Accept": "application/x-pem-file,application/json",
+              },
+            });
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              const errorCode = err.error || "";
+
+              if (res.status === 410 || errorCode === "already_downloaded") {
+                downloadBtn.textContent = "Đã tải";
+                return;
+              }
+
+              // Other errors: allow retry
+              downloadBtn.disabled = false;
+              downloadBtn.style.cursor = "pointer";
+              downloadBtn.style.opacity = "1";
+              return;
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `private_key_${key.id}.pem`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            downloadBtn.textContent = "Đã tải";
+          } catch (error) {
+            console.error("Error downloading private key:", error);
+            downloadBtn.disabled = false;
+            downloadBtn.style.cursor = "pointer";
+            downloadBtn.style.opacity = "1";
+          }
         });
 
         wrapper.appendChild(title);
@@ -76,6 +134,125 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error loading user key pairs:", error);
       userKeypairsList.textContent =
         "Error while loading key pairs. Please try again later.";
+    }
+  }
+
+  async function loadUserCertificates() {
+    if (!userCertificatesList) return;
+
+    userCertificatesList.textContent = "Loading...";
+
+    try {
+      const res = await fetch("/api/user/certificates", {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+        },
+      });
+
+      const result = await res.json().catch(() => ({}));
+
+      if (!res.ok || !result.success) {
+        userCertificatesList.textContent =
+          result.message || "Could not load your certificates.";
+        return;
+      }
+
+      const certs = result.certificates || [];
+      if (certs.length === 0) {
+        userCertificatesList.textContent = "You do not have any certificates yet.";
+        return;
+      }
+
+      userCertificatesList.textContent = "";
+
+      certs.forEach((cert) => {
+        const wrapper = document.createElement("div");
+        wrapper.style.border = "1px solid #e5e7eb";
+        wrapper.style.borderRadius = "6px";
+        wrapper.style.padding = "8px";
+        wrapper.style.marginBottom = "8px";
+
+        const title = document.createElement("div");
+        title.style.fontWeight = "600";
+        title.style.marginBottom = "4px";
+        const statusText = cert.status ? ` (${cert.status})` : "";
+        const domainText = cert.domain_name ? ` - ${cert.domain_name}` : "";
+        title.textContent = `Cert ID ${cert.certificate_id}${statusText}${domainText}`;
+
+        const meta = document.createElement("div");
+        meta.style.fontSize = "12px";
+        meta.style.color = "#6b7280";
+        const from = cert.valid_from || "";
+        const to = cert.valid_to || "";
+        meta.textContent = from && to ? `Valid: ${from} → ${to}` : "";
+
+        const downloadBtn = document.createElement("button");
+        downloadBtn.type = "button";
+        downloadBtn.textContent = "Download Certificate";
+        downloadBtn.style.padding = "4px 10px";
+        downloadBtn.style.fontSize = "12px";
+        downloadBtn.style.cursor = "pointer";
+        downloadBtn.addEventListener("click", async () => {
+          downloadBtn.disabled = true;
+          downloadBtn.style.cursor = "not-allowed";
+          downloadBtn.style.opacity = "0.7";
+
+          try {
+            const res = await fetch(
+              `/api/user/certificates/${cert.certificate_id}/download`,
+              {
+                method: "GET",
+                headers: {
+                  "Accept": "application/x-pem-file,application/json",
+                },
+              }
+            );
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: err.message || "Could not download certificate.",
+                confirmButtonColor: "#ef4444",
+              });
+              downloadBtn.disabled = false;
+              downloadBtn.style.cursor = "pointer";
+              downloadBtn.style.opacity = "1";
+              return;
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `certificate_${cert.certificate_id}.pem`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            downloadBtn.disabled = false;
+            downloadBtn.style.cursor = "pointer";
+            downloadBtn.style.opacity = "1";
+          } catch (error) {
+            console.error("Error downloading certificate:", error);
+            downloadBtn.disabled = false;
+            downloadBtn.style.cursor = "pointer";
+            downloadBtn.style.opacity = "1";
+          }
+        });
+
+        wrapper.appendChild(title);
+        if (meta.textContent) wrapper.appendChild(meta);
+        wrapper.appendChild(downloadBtn);
+        userCertificatesList.appendChild(wrapper);
+      });
+    } catch (error) {
+      console.error("Error loading user certificates:", error);
+      userCertificatesList.textContent =
+        "Error while loading certificates. Please try again later.";
     }
   }
 
@@ -149,6 +326,30 @@ document.addEventListener("DOMContentLoaded", () => {
           confirmButtonColor: "#ef4444",
         });
       }
+    });
+  }
+
+  if (requestCertificateBtn) {
+    requestCertificateBtn.addEventListener("click", () => {
+      window.location.href = "/certificate/request";
+    });
+  }
+
+  if (revokeCertificateBtn) {
+    revokeCertificateBtn.addEventListener("click", () => {
+      window.location.href = "/certificate/revoke";
+    });
+  }
+
+  if (viewCertificateRequestsBtn) {
+    viewCertificateRequestsBtn.addEventListener("click", () => {
+      window.location.href = "/admin/certificate-requests";
+    });
+  }
+
+  if (viewRevocationsBtn) {
+    viewRevocationsBtn.addEventListener("click", () => {
+      window.location.href = "/revocations";
     });
   }
 
@@ -366,4 +567,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initial load of user key pairs if section is present
   loadUserKeyPairs();
+  loadUserCertificates();
 });

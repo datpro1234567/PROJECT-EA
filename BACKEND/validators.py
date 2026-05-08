@@ -32,22 +32,14 @@ def validate_username(username):
     Returns:
         tuple: (is_valid, error_message)
     """
-    if not username:
+    # Minimal validation for signup/signin: only require a non-empty username.
+    # (We intentionally do NOT enforce regex/length constraints here.)
+    if username is None:
         return False, "Username is required"
 
-    username = username.strip()
-
-    if len(username) < 3:
-        return False, "Username must be at least 3 characters"
-
-    if len(username) > 20:
-        return False, "Username must not exceed 20 characters"
-
-    if not USERNAME_PATTERN.match(username):
-        return (
-            False,
-            "Username can only contain letters, numbers, underscore, and hyphen",
-        )
+    username = str(username).strip()
+    if not username:
+        return False, "Username is required"
 
     return True, None
 
@@ -152,15 +144,11 @@ def validate_full_name(full_name):
     return True, None
 
 
-def validate_signup_data(username, email, password, confirm_password):
-    """
-    Validate all signup data at once
+def validate_signup_data(username, password):
+    """Validate signup data.
 
-    Args:
-        username (str): Username
-        email (str): Email
-        password (str): Password
-        full_name (str): Full name (optional)
+    Per requirement, signup should not require email and should not enforce
+    strict username/password strength constraints.
 
     Returns:
         tuple: (is_valid, dict of errors)
@@ -172,20 +160,9 @@ def validate_signup_data(username, email, password, confirm_password):
     if not is_valid:
         errors["username"] = error
 
-    # Validate email
-    is_valid, error = validate_email(email)
-    if not is_valid:
-        errors["email"] = error
-
-    # Validate password
-    is_valid, error = validate_password(password)
-    if not is_valid:
-        errors["password"] = error
-
-    # Validate full name (optional)
-    is_valid, error = validate_password_confirmation(password, confirm_password)
-    if not is_valid:
-        errors["confirm_password"] = error
+    # Password: only require non-empty (no strength rules).
+    if password is None or password == "":
+        errors["password"] = "Password is required"
 
     return len(errors) == 0, errors
 
@@ -208,10 +185,9 @@ def validate_signin_data(username, password):
     if not is_valid:
         errors["username"] = error
 
-    # Validate password
-    is_valid, error = validate_password(password)
-    if not is_valid:
-        errors["password"] = error
+    # Password: only require non-empty (no strength rules).
+    if password is None or password == "":
+        errors["password"] = "Password is required"
 
     return len(errors) == 0, errors
 
