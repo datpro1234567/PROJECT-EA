@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const adminDashboardBtn = document.getElementById("admin-dashboard-btn");
   const generateKeyPairBtn = document.getElementById("generate-root-keypair-btn");
   const generateRootCertBtn = document.getElementById("generate-root-certificate-btn");
   const generateUserKeyPairBtn = document.getElementById("generate-user-keypair-btn");
@@ -11,6 +12,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const userCertificatesList = document.getElementById("user-certificates-list");
 
   const changePasswordForm = document.getElementById("change-password-form");
+
+  if (adminDashboardBtn) {
+    adminDashboardBtn.addEventListener("click", () => {
+      window.location.href = "/admin/dashboard";
+    });
+  }
 
   async function loadUserKeyPairs() {
     if (!userKeypairsList) return;

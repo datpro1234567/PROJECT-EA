@@ -24,6 +24,7 @@ from services.key_pair_services import (
     get_user_key_pairs,
     get_user_private_key_pem,
 )
+from services.admin_monitoring_services import get_system_summary, list_recent_activity
 from services.certificate_request_services import (
     create_issue_certificate_request,
     generate_csr_for_user_keypair,
@@ -293,6 +294,23 @@ def view_admin_certificate_requests():
         requests_list = []
 
     return render_template("admin_certificate_requests.html", requests=requests_list)
+
+
+@auth_bp.route("/admin/dashboard", methods=["GET"])
+@login_required
+def view_admin_dashboard():
+    if session.get("role") != "admin":
+        return redirect(url_for("auth.home"))
+
+    ok_sum, summary = get_system_summary()
+    if not ok_sum:
+        summary = {}
+
+    ok_act, activity = list_recent_activity(20)
+    if not ok_act:
+        activity = []
+
+    return render_template("admin_dashboard.html", summary=summary, activity=activity)
 
 
 @auth_bp.route("/certificate/revoke", methods=["GET"])
