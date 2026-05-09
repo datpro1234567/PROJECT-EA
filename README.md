@@ -269,8 +269,6 @@ PROJECT-EA/
 
 ---
 
----
-
 ## Giấy phép
 
 Dự án này được phát triển cho mục đích **học thuật và nghiên cứu**.
