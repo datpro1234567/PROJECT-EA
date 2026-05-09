@@ -1,5 +1,5 @@
 # PROJECT-EA
-a# 🔐 PROJECT-EA — Certificate Authority Management System
+🔐 PROJECT-EA — Certificate Authority Management System
 
 > Hệ thống quản lý Chứng nhận số X.509, hỗ trợ toàn bộ vòng đời chứng nhận SSL/TLS — từ tạo Root CA, cấp phát, đến thu hồi — thông qua giao diện Web trực quan.
 
