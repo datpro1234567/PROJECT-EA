@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Revoked Certificates</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='tree.png') }}"
+    />
+  </head>
+  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="max-width:1100px; margin:24px auto; padding:0 16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0; font-size:20px;">Danh sách chứng chỉ đã thu hồi (toàn hệ thống)</h1>
+        <button type="button" id="back-home-btn" style="padding:8px 12px; font-size:14px; cursor:pointer;">Về trang chủ</button>
+      </div>
+
+      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+        {% if not items or items|length == 0 %}
+          <div style="font-size:14px;">Chưa có chứng chỉ nào bị thu hồi.</div>
+        {% else %}
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Cert ID</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Serial</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Subject</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Issuer</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Revoked At</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for it in items %}
+                  <tr>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.certificate_id }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.serial_number }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.subject_dn }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.issuer_dn }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.revoked_at }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.revocation_reason_code or '' }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <script>
+      document.getElementById('back-home-btn')?.addEventListener('click', () => {
+        window.location.href = '/';
+      });
+    </script>
+  </body>
+</html>

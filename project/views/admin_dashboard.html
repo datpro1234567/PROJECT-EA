@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='tree.png') }}"
+    />
+  </head>
+  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="max-width:1100px; margin:24px auto; padding:0 16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0; font-size:20px;">Theo dõi hệ thống</h1>
+        <button type="button" id="back-home-btn" style="padding:8px 12px; font-size:14px; cursor:pointer;">Về trang chủ</button>
+      </div>
+
+      <div style="margin-top:16px; display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:12px;">
+        <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
+          <div style="font-size:12px; color:#6b7280;">Users</div>
+          <div style="font-size:22px; font-weight:700;">{{ summary.users_count or 0 }}</div>
+        </div>
+        <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
+          <div style="font-size:12px; color:#6b7280;">Key Pairs</div>
+          <div style="font-size:22px; font-weight:700;">{{ summary.key_pairs_count or 0 }}</div>
+        </div>
+        <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
+          <div style="font-size:12px; color:#6b7280;">Certificates</div>
+          <div style="font-size:22px; font-weight:700;">{{ summary.certificates_count or 0 }}</div>
+        </div>
+        <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
+          <div style="font-size:12px; color:#6b7280;">Pending Requests</div>
+          <div style="font-size:22px; font-weight:700;">{{ summary.pending_requests or 0 }}</div>
+        </div>
+        <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
+          <div style="font-size:12px; color:#6b7280;">Revoked</div>
+          <div style="font-size:22px; font-weight:700;">{{ summary.revoked_certs or 0 }}</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <h2 style="margin:0; font-size:16px;">Hoạt động gần đây (20)</h2>
+          <div style="display:flex; gap:8px;">
+            <a href="/admin/certificate-requests" style="font-size:13px; text-decoration:none;">Xem thêm Requests</a>
+            <a href="/revocations" style="font-size:13px; text-decoration:none;">Xem thêm Revocations</a>
+            <a href="/admin/settings" style="font-size:13px; text-decoration:none;">Thiết lập thông số kỹ thuật</a>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; overflow-x:auto;">
+          {% if not activity or activity|length == 0 %}
+            <div style="font-size:14px;">Chưa có hoạt động nào.</div>
+          {% else %}
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Time</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Type</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Actor</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Target</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for it in activity %}
+                  <tr>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">{{ it.event_time }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.event_type }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.actor }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.target }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.details }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <h2 style="margin:0; font-size:16px;">Chứng chỉ đã cấp (issued)</h2>
+          <a href="/revocations" style="font-size:13px; text-decoration:none;">Xem revoked</a>
+        </div>
+
+        <div style="margin-top:12px; overflow-x:auto;">
+          {% if not issued_certificates or issued_certificates|length == 0 %}
+            <div style="font-size:14px;">Chưa có chứng chỉ nào ở trạng thái issued.</div>
+          {% else %}
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Cert ID</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">User</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Domain</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Valid To</th>
+                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in issued_certificates %}
+                  <tr>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ c.certificate_id }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ c.username }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ c.domain_name or '' }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">{{ c.valid_to }}</td>
+                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">
+                      <button
+                        type="button"
+                        class="renew-cert-btn"
+                        data-certificate-id="{{ c.certificate_id }}"
+                        style="padding:6px 10px; font-size:12px; cursor:pointer; margin-right:6px;"
+                      >
+                        Renew
+                      </button>
+                      <button
+                        type="button"
+                        class="revoke-cert-btn"
+                        data-certificate-id="{{ c.certificate_id }}"
+                        style="padding:6px 10px; font-size:12px; cursor:pointer;"
+                      >
+                        Revoke
+                      </button>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+      document.getElementById('back-home-btn')?.addEventListener('click', () => {
+        window.location.href = '/';
+      });
+
+      async function postAdminAction(url, body) {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(body || {})
+        });
+
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || !result.success) {
+          throw new Error(result.message || 'Request failed.');
+        }
+        return result;
+      }
+
+      document.querySelectorAll('.revoke-cert-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const certificateId = btn.getAttribute('data-certificate-id');
+
+          const result = await Swal.fire({
+            title: 'Thu hồi chứng chỉ?',
+            text: `Cert ID ${certificateId} sẽ bị thu hồi (revoked).`,
+            input: 'text',
+            inputLabel: 'Reason code (tuỳ chọn)',
+            inputPlaceholder: 'admin_revoke',
+            showCancelButton: true,
+            confirmButtonText: 'Revoke',
+            cancelButtonText: 'Hủy',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280'
+          });
+
+          if (!result.isConfirmed) return;
+          const reasonCode = (result.value || '').toString().trim();
+
+          btn.disabled = true;
+          try {
+            await postAdminAction(`/api/admin/certificates/${certificateId}/revoke`, { reason_code: reasonCode });
+            await Swal.fire({ icon: 'success', title: 'Đã thu hồi', timer: 900, showConfirmButton: false });
+            window.location.reload();
+          } catch (err) {
+            btn.disabled = false;
+            Swal.fire({ icon: 'error', title: 'Lỗi', text: String(err?.message || err) });
+          }
+        });
+      });
+
+      document.querySelectorAll('.renew-cert-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const certificateId = btn.getAttribute('data-certificate-id');
+
+          const confirmed = await Swal.fire({
+            title: 'Renew chứng chỉ?',
+            text: `Sẽ cấp 1 chứng chỉ mới dựa trên cert ID ${certificateId}.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Renew',
+            cancelButtonText: 'Hủy',
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#6b7280'
+          }).then((r) => r.isConfirmed);
+
+          if (!confirmed) return;
+
+          btn.disabled = true;
+          try {
+            const res = await postAdminAction(`/api/admin/certificates/${certificateId}/renew`, {});
+            const newId = res?.data?.new_certificate_id;
+            await Swal.fire({
+              icon: 'success',
+              title: 'Đã renew',
+              text: newId ? `New cert ID: ${newId}` : 'Đã cấp chứng chỉ mới.',
+              confirmButtonColor: '#10b981'
+            });
+            window.location.reload();
+          } catch (err) {
+            btn.disabled = false;
+            Swal.fire({ icon: 'error', title: 'Lỗi', text: String(err?.message || err) });
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
