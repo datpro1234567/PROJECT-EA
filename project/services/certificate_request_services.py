@@ -12,6 +12,7 @@ from services.key_pair_services import (
     _decrypt_private_key_pem,
     _get_hash_algorithm,
     _load_system_settings,
+    get_root_ca_private_key_pem,
 )
 
 
@@ -591,11 +592,13 @@ def approve_certificate_request(
                 csr_dns_names = []
 
         # Load Root CA private key
-        private_pem = _decrypt_private_key_pem(root_private_enc)
+        private_pem = get_root_ca_private_key_pem()
+        if not private_pem:
+            private_pem = _decrypt_private_key_pem(root_private_enc).decode("utf-8", errors="ignore")
         try:
-            root_private_key = load_pem_private_key(private_pem, password=None)
+            root_private_key = load_pem_private_key(private_pem.encode("utf-8"), password=None)
         except Exception as exc:
-            raise ValueError("Cannot load Root CA private key from database.") from exc
+            raise ValueError("Cannot load Root CA private key.") from exc
 
         hash_algo = _get_hash_algorithm(settings)
         now = datetime.utcnow()
@@ -1417,11 +1420,13 @@ def admin_renew_certificate(
             return False, "Cannot determine domain (CN) from existing certificate."
 
         # Load Root CA private key
-        private_pem = _decrypt_private_key_pem(root_private_enc)
+        private_pem = get_root_ca_private_key_pem()
+        if not private_pem:
+            private_pem = _decrypt_private_key_pem(root_private_enc).decode("utf-8", errors="ignore")
         try:
-            root_private_key = load_pem_private_key(private_pem, password=None)
+            root_private_key = load_pem_private_key(private_pem.encode("utf-8"), password=None)
         except Exception as exc:
-            return False, f"Cannot load Root CA private key from database: {exc}"
+            return False, f"Cannot load Root CA private key: {exc}"
 
         hash_algo = _get_hash_algorithm(settings)
         now = datetime.utcnow()
