@@ -277,8 +277,4 @@ Dự án này được phát triển cho mục đích **học thuật và nghiê
 
 ---
 
-<div align="center">
-
-Made with ❤️ by [datpro1234567](https://github.com/datpro1234567)
-
 </div>
