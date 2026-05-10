@@ -70,72 +70,18 @@ document.addEventListener("DOMContentLoaded", () => {
         pub.style.marginBottom = "6px";
         pub.value = key.public_key || "";
 
-        const downloadBtn = document.createElement("button");
-        downloadBtn.type = "button";
-        const canDownloadPrivateKey = Boolean(key.can_download_private_key);
-
-        downloadBtn.textContent = canDownloadPrivateKey
-          ? "Download Private Key"
-          : "Đã tải";
-
-        downloadBtn.disabled = !canDownloadPrivateKey;
-        downloadBtn.style.padding = "4px 10px";
-        downloadBtn.style.fontSize = "12px";
-        downloadBtn.style.cursor = canDownloadPrivateKey ? "pointer" : "not-allowed";
-        downloadBtn.style.opacity = canDownloadPrivateKey ? "1" : "0.6";
-        downloadBtn.addEventListener("click", async () => {
-          if (downloadBtn.disabled) return;
-
-          downloadBtn.disabled = true;
-          downloadBtn.style.cursor = "not-allowed";
-          downloadBtn.style.opacity = "0.6";
-
-          try {
-            const res = await fetch(`/api/user/keypairs/${key.id}/private`, {
-              method: "GET",
-              headers: {
-                "Accept": "application/x-pem-file,application/json",
-              },
-            });
-
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              const errorCode = err.error || "";
-
-              if (res.status === 410 || errorCode === "already_downloaded") {
-                downloadBtn.textContent = "Đã tải";
-                return;
-              }
-
-              // Other errors: allow retry
-              downloadBtn.disabled = false;
-              downloadBtn.style.cursor = "pointer";
-              downloadBtn.style.opacity = "1";
-              return;
-            }
-
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `private_key_${key.id}.pem`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-
-            downloadBtn.textContent = "Đã tải";
-          } catch (error) {
-            console.error("Error downloading private key:", error);
-            downloadBtn.disabled = false;
-            downloadBtn.style.cursor = "pointer";
-            downloadBtn.style.opacity = "1";
-          }
-        });
+        const note = document.createElement("div");
+        note.style.fontSize = "12px";
+        note.style.color = "#6b7280";
+        note.style.padding = "6px";
+        note.style.backgroundColor = "#f3f4f6";
+        note.style.borderRadius = "4px";
+        note.style.fontStyle = "italic";
+        note.textContent = "ℹ️ Your private key was automatically downloaded when this key pair was generated. It is not stored in the system for security reasons. Keep your private key safe!";
 
         wrapper.appendChild(title);
         wrapper.appendChild(pub);
-        wrapper.appendChild(downloadBtn);
+        wrapper.appendChild(note);
         userKeypairsList.appendChild(wrapper);
       });
     } catch (error) {
@@ -268,7 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
     generateKeyPairBtn.addEventListener("click", async () => {
       const confirmed = await Swal.fire({
         title: "Generate Root Key Pair",
-        text: "This action will generate a key pair for signing Root Certificates.",
+        text: "This action will generate a key pair for signing Root Certificates. The private key will be downloaded immediately.",
         icon: "warning",
         showCancelButton: true,
         confirmButtonText: "Generate",
@@ -300,10 +246,28 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await res.json().catch(() => ({}));
 
         if (res.ok && result.success) {
+          const privateKeyPem = result.data?.private_key_pem;
+          const keyPairId = result.data?.key_pair_id;
+
+          if (privateKeyPem && keyPairId) {
+            const blob = new Blob([privateKeyPem], {
+              type: "application/x-pem-file",
+            });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `root_private_key_${keyPairId}.pem`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+          }
+
           Swal.fire({
             icon: "success",
             title: "Success",
-            text: result.message || "Successfully generated Root CA key pair.",
+            text:
+              "Root CA key pair generated successfully. The private key has been downloaded.",
             confirmButtonColor: "#06b6d4",
           });
         } else if (res.status === 403) {
@@ -371,7 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
     generateRootCertBtn.addEventListener("click", async () => {
       const confirmed = await Swal.fire({
         title: "Create Root Certificate",
-        text: "This action will create a self-signed Root Certificate for the entire system.",
+        text: "This action will create a self-signed Root Certificate for the entire system. You must upload the Root CA private key file to continue.",
         icon: "warning",
         showCancelButton: true,
         confirmButtonText: "Generate",
@@ -381,6 +345,30 @@ document.addEventListener("DOMContentLoaded", () => {
       }).then((result) => result.isConfirmed);
 
       if (!confirmed) return;
+
+      const uploadResult = await Swal.fire({
+        title: "Upload Root CA Private Key",
+        html:
+          '<input type="file" id="root-private-key-file" accept=".pem,.key,.txt" class="swal2-file" style="width:100%;" />',
+        icon: "info",
+        showCancelButton: true,
+        confirmButtonText: "Continue",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#10b981",
+        cancelButtonColor: "#6b7280",
+        focusConfirm: false,
+        preConfirm: () => {
+          const input = document.getElementById("root-private-key-file");
+          const file = input && input.files ? input.files[0] : null;
+          if (!file) {
+            Swal.showValidationMessage("Please select the Root CA private key file.");
+            return false;
+          }
+          return file;
+        },
+      });
+
+      if (!uploadResult.isConfirmed) return;
 
       Swal.fire({
         title: "Generating Root Certificate...",
@@ -392,12 +380,12 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       try {
+        const formData = new FormData();
+        formData.append("private_key_file", uploadResult.value);
+
         const res = await fetch("/api/admin/root-certificate", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({}),
+          body: formData,
         });
 
         const result = await res.json().catch(() => ({}));
@@ -446,7 +434,7 @@ document.addEventListener("DOMContentLoaded", () => {
     generateUserKeyPairBtn.addEventListener("click", async () => {
       const confirmed = await Swal.fire({
         title: "Generate Your Key Pair",
-        text: "This will create a personal public/private key pair linked to your account.",
+        text: "This will create a personal public/private key pair linked to your account. Your private key will automatically download - keep it safe!",
         icon: "warning",
         showCancelButton: true,
         confirmButtonText: "Generate",
@@ -478,12 +466,27 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await res.json().catch(() => ({}));
 
         if (res.ok && result.success) {
+          // Auto-download the private key
+          const privateKeyPem = result.data?.private_key_pem;
+          const keyPairId = result.data?.key_pair_id;
+          
+          if (privateKeyPem && keyPairId) {
+            const blob = new Blob([privateKeyPem], { type: "application/x-pem-file" });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `private_key_${keyPairId}.pem`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+          }
+
           Swal.fire({
             icon: "success",
             title: "Success",
             text:
-              result.message ||
-              "Successfully generated your personal key pair.",
+              "Key pair generated successfully! Your private key has been downloaded. Store it securely.",
             confirmButtonColor: "#06b6d4",
           }).then(() => {
             loadUserKeyPairs();

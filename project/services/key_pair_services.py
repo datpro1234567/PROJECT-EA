@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Tuple, List
+from typing import Any, Dict, Optional, Tuple, List
 
 from db import get_db_connection
 
@@ -10,6 +10,9 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.fernet import Fernet
 from cryptography.x509.oid import NameOID
+
+
+ROOT_CA_PRIVATE_KEY_PEM_CACHE: Optional[str] = None
 
 
 def _load_system_settings(cursor) -> Optional[Dict]:
@@ -192,7 +195,16 @@ def _decrypt_private_key_pem(private_encrypted) -> bytes:
         return raw_bytes
 
 
-def generate_root_ca_key_pair(admin_user_id: int) -> Tuple[bool, str]:
+def set_root_ca_private_key_pem(private_key_pem: str) -> None:
+    global ROOT_CA_PRIVATE_KEY_PEM_CACHE
+    ROOT_CA_PRIVATE_KEY_PEM_CACHE = (private_key_pem or "").strip() or None
+
+
+def get_root_ca_private_key_pem() -> Optional[str]:
+    return ROOT_CA_PRIVATE_KEY_PEM_CACHE
+
+
+def generate_root_ca_key_pair(admin_user_id: int) -> Tuple[bool, Any]:
 
     conn = get_db_connection()
     if not conn:
@@ -238,12 +250,12 @@ def generate_root_ca_key_pair(admin_user_id: int) -> Tuple[bool, str]:
             encryption_algorithm=serialization.NoEncryption(),
         )
 
+        set_root_ca_private_key_pem(private_pem.decode("utf-8"))
+
         public_pem = public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-
-        private_encrypted = _encrypt_private_key_pem(private_pem)
 
         # 4. Insert into key_pairs
         cursor.execute(
@@ -265,7 +277,7 @@ def generate_root_ca_key_pair(admin_user_id: int) -> Tuple[bool, str]:
                 None,  # Root CA is a system-level key, not bound to a user
                 "root_ca",
                 public_pem.decode("utf-8"),
-                private_encrypted,
+                None,  # Root CA private key is not stored in the database
                 algorithm,
                 int(key_size),
                 "Root CA key pair",
@@ -282,7 +294,14 @@ def generate_root_ca_key_pair(admin_user_id: int) -> Tuple[bool, str]:
             if new_id is not None
             else "Successfully generated Root CA key pair."
         )
-        return True, msg
+        return True, {
+            "key_pair_id": new_id,
+            "private_key_pem": private_pem.decode("utf-8"),
+            "public_key_pem": public_pem.decode("utf-8"),
+            "algorithm": algorithm,
+            "key_size": int(key_size),
+            "message": msg,
+        }
 
     except Exception as exc:
         conn.rollback()
@@ -309,7 +328,7 @@ def _get_hash_algorithm(settings: Dict) -> hashes.HashAlgorithm:
     return hashes.SHA256()
 
 
-def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
+def generate_root_ca_certificate(admin_user_id: int, root_private_key_pem: str) -> Tuple[bool, str]:
     conn = get_db_connection()
     if not conn:
         return False, "cannot connect to database"
@@ -340,10 +359,10 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
         if existing:
             return False, "A Root CA certificate already exists with status 'issued'."
 
-        # 3. Load active Root CA key pair
+        # 3. Load active Root CA key pair public key
         cursor.execute(
             """
-            SELECT TOP 1 id, public_key, private_key_encrypted, algorithm, key_size
+            SELECT TOP 1 id, public_key, algorithm, key_size
             FROM key_pairs
             WHERE owner_type = ?
               AND status = 'active'
@@ -355,18 +374,36 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
         if not row:
             return False, "No active Root CA key pair found. Please generate Root CA key pair first."
 
-        root_key_pair_id, public_pem_str, private_enc_str, algorithm, key_size = row
+        root_key_pair_id, public_pem_str, algorithm, key_size = row
 
         algorithm = (algorithm or "RSA").upper()
         if algorithm != "RSA":
             # At the moment only RSA is supported for certificate generation
             algorithm = "RSA"
 
-        private_pem = _decrypt_private_key_pem(private_enc_str)
         try:
-            private_key = load_pem_private_key(private_pem, password=None)
-        except Exception as exc:  # noqa: F841
-            return False, "Cannot load Root CA private key from database."
+            private_key_pem = (root_private_key_pem or "").strip()
+            if not private_key_pem:
+                return False, "Root CA private key file is required. Please upload the private key before creating the root certificate."
+
+            private_key = load_pem_private_key(private_key_pem.encode("utf-8"), password=None)
+        except Exception:
+            return False, "Cannot load the uploaded Root CA private key."
+
+        try:
+            stored_public_key = serialization.load_pem_public_key(public_pem_str.encode("utf-8"))
+            uploaded_public_key = private_key.public_key()
+            if stored_public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            ) != uploaded_public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            ):
+                return False, "The uploaded private key does not match the active Root CA public key."
+            set_root_ca_private_key_pem(private_key_pem)
+        except Exception:
+            return False, "Cannot verify the uploaded Root CA private key against the stored public key."
 
         hash_algo = _get_hash_algorithm(settings)
 
@@ -536,7 +573,8 @@ def generate_root_ca_certificate(admin_user_id: int) -> Tuple[bool, str]:
         conn.close()
 
 
-def generate_user_key_pair(user_id: int, owner_type: str = "customer") -> Tuple[bool, str]:
+def generate_user_key_pair(user_id: int, owner_type: str = "customer") -> Tuple[bool, any]:
+    """Generate user key pair. Returns (True, dict) with key data and private_key_pem, or (False, error_msg)."""
     if owner_type not in {"admin", "customer"}:
         owner_type = "customer"
 
@@ -573,9 +611,11 @@ def generate_user_key_pair(user_id: int, owner_type: str = "customer") -> Tuple[
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
 
-        private_encrypted = _encrypt_private_key_pem(private_pem)
+        # 3. NOTE: Private key is NOT saved to database (security best practice)
+        # The private_key_encrypted field will be NULL
+        # Client must download and securely store the private key
 
-        # 4. Insert into key_pairs
+        # 4. Insert into key_pairs with NULL private_key_encrypted
         cursor.execute(
             """
             INSERT INTO key_pairs (
@@ -595,7 +635,7 @@ def generate_user_key_pair(user_id: int, owner_type: str = "customer") -> Tuple[
                 int(user_id),
                 owner_type,
                 public_pem.decode("utf-8"),
-                private_encrypted,
+                None,  # Private key NOT stored in DB
                 algorithm,
                 int(key_size),
                 "User key pair",
@@ -607,12 +647,17 @@ def generate_user_key_pair(user_id: int, owner_type: str = "customer") -> Tuple[
         conn.commit()
 
         new_id = new_id_row[0] if new_id_row else None
-        msg = (
-            f"Successfully generated key pair for user (key_pairs.id = {new_id})."
-            if new_id is not None
-            else "Successfully generated key pair for user."
-        )
-        return True, msg
+        msg = f"Successfully generated key pair for user (key_pairs.id = {new_id})."
+
+        # Return dict with key data including private key for immediate download
+        return True, {
+            "key_pair_id": new_id,
+            "private_key_pem": private_pem.decode("utf-8"),
+            "public_key_pem": public_pem.decode("utf-8"),
+            "algorithm": algorithm,
+            "key_size": int(key_size),
+            "message": msg,
+        }
 
     except Exception as exc:
         conn.rollback()
@@ -627,7 +672,10 @@ def generate_user_key_pair(user_id: int, owner_type: str = "customer") -> Tuple[
 
 
 def get_user_key_pairs(user_id: int, owner_type: str = "customer") -> Tuple[bool, List[Dict]]:
-    """Return all key pairs for a given user and owner_type."""
+    """Return all key pairs for a given user and owner_type.
+    
+    Note: Private keys are not stored in the database, so they cannot be downloaded later.
+    """
 
     if owner_type not in {"admin", "customer"}:
         owner_type = "customer"
@@ -645,12 +693,7 @@ def get_user_key_pairs(user_id: int, owner_type: str = "customer") -> Tuple[bool
                 public_key,
                 algorithm,
                 key_size,
-                status,
-                CASE
-                    WHEN private_key_encrypted IS NOT NULL AND DATALENGTH(private_key_encrypted) > 0
-                        THEN CAST(1 AS BIT)
-                    ELSE CAST(0 AS BIT)
-                END AS can_download_private_key
+                status
             FROM key_pairs
             WHERE owner_user_id = ?
               AND owner_type = ?

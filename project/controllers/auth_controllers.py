@@ -93,7 +93,26 @@ def api_generate_root_keypair():
         )
 
     admin_id = session.get("user_id")
-    success, message = generate_root_ca_key_pair(admin_id)
+    success, result = generate_root_ca_key_pair(admin_id)
+    if success:
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "message": result.get("message"),
+                    "data": {
+                        "key_pair_id": result.get("key_pair_id"),
+                        "private_key_pem": result.get("private_key_pem"),
+                        "public_key_pem": result.get("public_key_pem"),
+                        "algorithm": result.get("algorithm"),
+                        "key_size": result.get("key_size"),
+                    },
+                }
+            ),
+            200,
+        )
+
+    message = result
     status_code = 200 if success else 400
     return jsonify({"success": success, "message": message}), status_code
 
@@ -113,7 +132,16 @@ def api_generate_root_certificate():
         )
 
     admin_id = session.get("user_id")
-    success, message = generate_root_ca_certificate(admin_id)
+    private_key_pem = ""
+
+    uploaded_file = request.files.get("private_key_file")
+    if uploaded_file:
+        private_key_pem = uploaded_file.read().decode("utf-8")
+    else:
+        json_data = request.get_json(silent=True) or {}
+        private_key_pem = request.form.get("private_key_pem") or json_data.get("private_key_pem") or ""
+
+    success, message = generate_root_ca_certificate(admin_id, private_key_pem)
     status_code = 200 if success else 400
     return jsonify({"success": success, "message": message}), status_code
 
@@ -121,7 +149,11 @@ def api_generate_root_certificate():
 @auth_bp.route("/api/user/keypair", methods=["POST"])
 @login_required
 def api_generate_user_keypair():
-    """Generate a personal key pair for the currently logged-in user."""
+    """Generate a personal key pair for the currently logged-in user.
+    
+    Returns private_key_pem in response for immediate client-side download.
+    Private key is NOT stored in database.
+    """
 
     if session.get("role") != "customer":
         return (
@@ -135,9 +167,24 @@ def api_generate_user_keypair():
         )
 
     user_id = session.get("user_id")
-    success, message = generate_user_key_pair(user_id, owner_type="customer")
-    status_code = 200 if success else 400
-    return jsonify({"success": success, "message": message}), status_code
+    success, result = generate_user_key_pair(user_id, owner_type="customer")
+    
+    if success:
+        # result is a dict with key_pair_id, private_key_pem, public_key_pem, etc.
+        return jsonify({
+            "success": True,
+            "message": result.get("message"),
+            "data": {
+                "key_pair_id": result.get("key_pair_id"),
+                "private_key_pem": result.get("private_key_pem"),
+                "public_key_pem": result.get("public_key_pem"),
+                "algorithm": result.get("algorithm"),
+                "key_size": result.get("key_size"),
+            }
+        }), 200
+    else:
+        # result is an error message string
+        return jsonify({"success": False, "message": result}), 400
 
 
 @auth_bp.route("/api/user/keypairs", methods=["GET"])
