@@ -1,0 +1,47 @@
+
+#inputName {
+  position: absolute;
+  top: 200px;
+  left: 320px;
+  color: rgb(106, 206, 231);
+}
+
+#inputName::placeholder {
+  color: rgb(114, 153, 148);
+}
+
+#inputEmail {
+  position: absolute;
+  top: 230px;
+  left: 320px;
+  color: rgb(106, 206, 231);
+}
+
+#inputEmail::placeholder {
+  color: rgb(114, 153, 148);
+}
+
+#buttonSignIn {
+  position: absolute;
+  top: 260px;
+  left: 370px;
+  background-color: rgb(231, 183, 112);
+  color: black;
+}
+
+#buttonSignUp {
+  position: absolute;
+  top: 260px;
+  left: 429px;
+  background-color: rgb(231, 183, 112);
+  color: black;
+}
+
+#buttonChangePassword {
+  position: absolute;
+  top: 283px;
+  left: 370px;
+  background-color: rgb(231, 183, 112);
+  color: black;
+}
+
