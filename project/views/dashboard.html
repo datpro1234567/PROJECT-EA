@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='tree.png') }}"
+    />
+    <style>
+      /* --- GLOBAL STYLES --- */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f3f4f6; /* Nền xám nhạt giúp nổi bật các khối Card */
+        color: #1f2937;
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      /* --- TOP NAVBAR --- */
+      .navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #ffffff;
+        padding: 16px 32px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .navbar-brand {
+        font-size: 20px;
+        font-weight: bold;
+        color: #111827;
+      }
+      .navbar-user {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      /* --- LAYOUT & GRID --- */
+      .container {
+        max-width: 1200px;
+        margin: 32px auto;
+        padding: 0 16px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+      /* Màn hình lớn chia 2 cột */
+      @media (min-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      /* --- CARDS --- */
+      .card {
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+        border: 1px solid #e5e7eb;
+      }
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .card-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+      }
+
+      /* --- BUTTONS --- */
+      .btn {
+        padding: 8px 16px;
+        font-size: 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: none;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+      .btn-primary {
+        background-color: #2563eb;
+        color: white;
+      }
+      .btn-primary:hover {
+        background-color: #1d4ed8;
+      }
+
+      .btn-secondary {
+        background-color: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+      }
+      .btn-secondary:hover {
+        background-color: #e5e7eb;
+      }
+
+      .btn-danger {
+        background-color: #ef4444;
+        color: white;
+      }
+      .btn-danger:hover {
+        background-color: #dc2626;
+      }
+
+      .actions-group {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      /* --- FORMS --- */
+      .form-group {
+        margin-bottom: 16px;
+        text-align: left;
+      }
+      .form-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        box-sizing: border-box;
+      }
+
+      /* --- DETAILS / ACCORDION --- */
+      details summary {
+        font-weight: 600;
+        cursor: pointer;
+        color: #4b5563;
+        outline: none;
+        user-select: none;
+      }
+      details[open] summary {
+        margin-bottom: 16px;
+        color: #111827;
+      }
+
+      .data-list {
+        font-size: 13px;
+        text-align: left;
+        white-space: pre-wrap;
+        word-break: break-all; /* Tránh chuỗi key dài làm vỡ layout */
+      }
+
+      .data-list {
+        font-size: 13px;
+        text-align: left;
+        white-space: pre-wrap;
+        word-break: break-all;
+
+        /* -- THÊM CÁC DÒNG NÀY -- */
+        max-height: 450px; /* Giới hạn chiều cao tối đa */
+        overflow-y: auto; /* Hiển thị thanh cuộn dọc khi nội dung quá dài */
+        padding-right: 8px; /* Tránh chữ bị dính sát vào thanh cuộn */
+      }
+
+      /* -- LÀM ĐẸP THANH CUỘN (Tùy chọn) -- */
+      .data-list::-webkit-scrollbar {
+        width: 6px;
+      }
+      .data-list::-webkit-scrollbar-track {
+        background: #f3f4f6;
+        border-radius: 8px;
+      }
+      .data-list::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 8px;
+      }
+      .data-list::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- HEADER NAVBAR -->
+    <nav class="navbar">
+      <div class="navbar-brand">Dashboard</div>
+      <div class="navbar-user">
+        <span>
+          Hello, <strong>{{ session.get('username') or 'User' }}</strong>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            style="margin-left: 10px"
+            onclick="window.location.href = '/change-password'"
+          >
+            Đổi mật khẩu
+          </button>
+        </span>
+        <form method="POST" action="/logout" style="margin: 0">
+          <button type="submit" class="btn btn-danger">Logout</button>
+        </form>
+      </div>
+    </nav>
+
+    <div class="container">
+      <!-- QUẢN TRỊ VIÊN (ADMIN) -->
+      {% if session.get('role') == 'admin' %}
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-header">
+          <h2 class="card-title">Admin Controls</h2>
+        </div>
+        <div class="actions-group">
+          <button
+            id="admin-dashboard-btn"
+            type="button"
+            class="btn btn-secondary"
+          >
+            Dashboard
+          </button>
+          <button
+            id="generate-root-keypair-btn"
+            type="button"
+            class="btn btn-primary"
+          >
+            Generate Root Key Pair
+          </button>
+          <button
+            id="generate-root-certificate-btn"
+            type="button"
+            class="btn btn-primary"
+          >
+            Create Root Certificate
+          </button>
+          <button
+            id="view-certificate-requests-btn"
+            type="button"
+            class="btn btn-secondary"
+          >
+            Certificate Requests
+          </button>
+          <button
+            id="view-revocations-btn"
+            type="button"
+            class="btn btn-secondary"
+          >
+            Revocations
+          </button>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- KHÁCH HÀNG (CUSTOMER) -->
+      {% if session.get('role') == 'customer' %}
+      <div class="grid">
+        <!-- Cột Trái: Quản lý Key -->
+        <div class="card" id="user-keypairs-section">
+          <div class="card-header">
+            <h2 class="card-title">My Key Pairs</h2>
+            <!-- Nút tạo Key Pair được đưa vào ngữ cảnh của Card này -->
+            <button
+              id="generate-user-keypair-btn"
+              type="button"
+              class="btn btn-primary"
+            >
+              + Generate Key
+            </button>
+          </div>
+          <div id="user-keypairs-list" class="data-list"></div>
+        </div>
+
+        <!-- Cột Phải: Quản lý Cert -->
+        <div class="card" id="user-certificates-section">
+          <div class="card-header">
+            <h2 class="card-title">My Certificates</h2>
+            <!-- Nút tạo Request Cert được đưa vào ngữ cảnh của Card này -->
+            <button
+              id="request-certificate-btn"
+              type="button"
+              class="btn btn-primary"
+            >
+              + Request Cert
+            </button>
+          </div>
+          <!-- Các thao tác phụ liên quan đến Cert được nhóm lại ở dưới -->
+          <div class="actions-group">
+            <button
+              id="tracked-certificates-btn"
+              type="button"
+              class="btn btn-secondary"
+            >
+              Track
+            </button>
+            <button
+              id="view-revocations-btn"
+              type="button"
+              class="btn btn-secondary"
+            >
+              Revocations
+            </button>
+            <button
+              id="revoke-certificate-btn"
+              type="button"
+              class="btn btn-danger"
+            >
+              Revoke
+            </button>
+          </div>
+          <div id="user-certificates-list" class="data-list"></div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <!-- End Container -->
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ url_for('static', filename='js/home.js') }}"></script>
+  </body>
+</html>

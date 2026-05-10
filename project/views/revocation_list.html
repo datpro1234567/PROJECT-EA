@@ -1,60 +1,145 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Revoked Certificates</title>
-    <link
-      rel="icon"
-      type="image/png"
-      href="{{ url_for('static', filename='tree.png') }}"
-    />
-  </head>
-  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-    <div style="max-width:1100px; margin:24px auto; padding:0 16px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <h1 style="margin:0; font-size:20px;">Danh sách chứng chỉ đã thu hồi (toàn hệ thống)</h1>
-        <button type="button" id="back-home-btn" style="padding:8px 12px; font-size:14px; cursor:pointer;">Về trang chủ</button>
-      </div>
+{% extends "base.html" %} {% block title %}Revoked Certificates - GoodCA{%
+endblock %} {% block extra_css %}
+<style>
+  .page-wrapper {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 20px;
+    width: 100%;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+  }
+  .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+  }
+  .btn-secondary:hover {
+    background: #e5e7eb;
+  }
+  .dashboard-card {
+    background: white;
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+  }
 
-      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
-        {% if not items or items|length == 0 %}
-          <div style="font-size:14px;">Chưa có chứng chỉ nào bị thu hồi.</div>
-        {% else %}
-          <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-              <thead>
-                <tr>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Cert ID</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Serial</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Subject</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Issuer</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Revoked At</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for it in items %}
-                  <tr>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.certificate_id }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.serial_number }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.subject_dn }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.issuer_dn }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.revoked_at }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ it.revocation_reason_code or '' }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% endif %}
-      </div>
+  /* Table styles */
+  .table-responsive {
+    overflow-x: auto;
+    width: 100%;
+  }
+  .custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  .custom-table th {
+    background-color: #f9fafb;
+    padding: 16px 20px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  .custom-table td {
+    padding: 16px 20px;
+    font-size: 0.875rem;
+    color: #4b5563;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: top;
+  }
+  .custom-table tbody tr:hover {
+    background-color: #f9fafb;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+    font-size: 0.95rem;
+  }
+
+  /* Badge cho Lý do */
+  .badge-reason {
+    background-color: #fee2e2;
+    color: #991b1b;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <h1 class="page-title">Danh sách chứng chỉ đã thu hồi (CRL)</h1>
+    <a href="/" class="btn-secondary">← Về trang chủ</a>
+  </div>
+
+  <div class="dashboard-card">
+    {% if not items or items|length == 0 %}
+    <div class="empty-state">
+      <p>Hệ thống hiện chưa có chứng chỉ nào bị thu hồi.</p>
     </div>
-
-    <script>
-      document.getElementById('back-home-btn')?.addEventListener('click', () => {
-        window.location.href = '/';
-      });
-    </script>
-  </body>
-</html>
+    {% else %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Cert ID</th>
+            <th>Serial Number</th>
+            <th>Subject DN</th>
+            <th>Issuer DN</th>
+            <th>Revoked At</th>
+            <th>Reason Code</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in items %}
+          <tr>
+            <td style="font-weight: 600; color: #111827">
+              #{{ it.certificate_id }}
+            </td>
+            <td style="font-family: monospace; font-size: 0.8rem">
+              {{ it.serial_number }}
+            </td>
+            <td>{{ it.subject_dn }}</td>
+            <td>{{ it.issuer_dn }}</td>
+            <td>{{ it.revoked_at }}</td>
+            <td>
+              {% if it.revocation_reason_code %}
+              <span class="badge-reason">{{ it.revocation_reason_code }}</span>
+              {% else %}
+              <span style="color: #9ca3af">Không rõ</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

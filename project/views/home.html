@@ -1,162 +1,55 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Good Web</title>
-    <link
-      rel="icon"
-      type="image/png"
-      href="{{ url_for('static', filename='tree.png') }}"
-    />
-  </head>
-  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-    <h1 style="text-align:center; margin-top:16vh; color:#000000;">
-      Hello, {{ session.get('username') or 'User' }}
-    </h1>
+{% extends "base.html" %} {% block title %}Home - Good CA{% endblock %} {% block
+extra_css %} {% endblock %} {% block content %}
+<div class="hero-section">
+  <h1 class="hero-title">Good CA</h1>
+  <p class="hero-subtitle">
+    Trusted Certificate Authority for Secure Digital Identities
+  </p>
+</div>
+<div class="feature-container">
+  <div style="text-align: center; margin-bottom: 50px">
+    <h2 style="color: #333; font-size: 2.5rem">Why Choose GoodCA?</h2>
+    <p style="color: #666">
+      We provide robust, reliable, and user-friendly certificate management for
+      organizations and individuals.
+    </p>
+  </div>
 
-    <div style="text-align:center; margin-top:24px;">
-      <form method="POST" action="/logout" style="display:inline-block; margin-right:16px;">
-        <button type="submit" style="padding:8px 16px; font-size:14px; cursor:pointer;">
-          Logout
-        </button>
-      </form>
-
-      {% if session.get('role') == 'admin' %}
-      <button
-        id="admin-dashboard-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Dashboard
-      </button>
-      <button
-        id="generate-root-keypair-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Generate Root Key Pair
-      </button>
-      <button
-        id="generate-root-certificate-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Create Root Certificate
-      </button>
-      <button
-        id="view-certificate-requests-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Certificate Requests
-      </button>
-      <button
-        id="view-revocations-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Revocations
-      </button>
-      {% elif session.get('role') == 'customer' %}
-      <button
-        id="generate-user-keypair-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Generate My Key Pair
-      </button>
-      <button
-        id="request-certificate-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Request Certificate
-      </button>
-      <button
-        id="revoke-certificate-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Revoke Certificate
-      </button>
-      <button
-        id="view-revocations-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Revocations
-      </button>
-      <button
-        id="tracked-certificates-btn"
-        type="button"
-        style="padding:8px 16px; font-size:14px; cursor:pointer;"
-      >
-        Track Certificates
-      </button>
-      {% endif %}
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon" style="color: #667eea">
+        <i class="fas fa-certificate"></i>
+      </div>
+      <h3 style="margin-bottom: 15px; color: #333">
+        Digital Certificate Issuance
+      </h3>
+      <p style="color: #666; line-height: 1.6">
+        Easily request, issue, and manage SSL/TLS and personal certificates for
+        secure communications and authentication.
+      </p>
     </div>
 
-    <div style="max-width:400px; margin:32px auto; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
-      <h2 style="margin-bottom:16px; font-size:18px;">Change Password</h2>
-      <form id="change-password-form">
-        <div style="margin-bottom:12px; text-align:left;">
-          <label for="old_password" style="display:block; margin-bottom:4px; font-size:14px;">Old password</label>
-          <input
-            type="password"
-            id="old_password"
-            name="old_password"
-            style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
-            required
-          />
-        </div>
-        <div style="margin-bottom:12px; text-align:left;">
-          <label for="new_password" style="display:block; margin-bottom:4px; font-size:14px;">New password</label>
-          <input
-            type="password"
-            id="new_password"
-            name="new_password"
-            style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
-            required
-          />
-        </div>
-        <div style="margin-bottom:16px; text-align:left;">
-          <label for="confirm_password" style="display:block; margin-bottom:4px; font-size:14px;">Confirm new password</label>
-          <input
-            type="password"
-            id="confirm_password"
-            name="confirm_password"
-            style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
-            required
-          />
-        </div>
-        <button
-          type="submit"
-          style="padding:8px 16px; font-size:14px; cursor:pointer;"
-        >
-          Update Password
-        </button>
-      </form>
+    <div class="feature-card">
+      <div class="feature-icon" style="color: #764ba2">
+        <i class="fas fa-shield-alt"></i>
+      </div>
+      <h3 style="margin-bottom: 15px; color: #333">Revocation & Monitoring</h3>
+      <p style="color: #666; line-height: 1.6">
+        Instantly revoke compromised certificates and monitor certificate status
+        to maintain system integrity.
+      </p>
     </div>
 
-    {% if session.get('role') == 'customer' %}
-    <div
-      id="user-keypairs-section"
-      style="max-width:800px; margin:0 auto 40px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;"
-    >
-      <h2 style="margin-bottom:16px; font-size:18px;">My Key Pairs</h2>
-      <div id="user-keypairs-list" style="font-size:13px; text-align:left; white-space:pre-wrap;"></div>
+    <div class="feature-card">
+      <div class="feature-icon" style="color: #ff6b6b">
+        <i class="fas fa-user-lock"></i>
+      </div>
+      <h3 style="margin-bottom: 15px; color: #333">User & Admin Dashboard</h3>
+      <p style="color: #666; line-height: 1.6">
+        Intuitive dashboards for both users and administrators to track, manage,
+        and audit all certificate activities.
+      </p>
     </div>
-
-    <div
-      id="user-certificates-section"
-      style="max-width:800px; margin:0 auto 40px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;"
-    >
-      <h2 style="margin-bottom:16px; font-size:18px;">My Certificates</h2>
-      <div id="user-certificates-list" style="font-size:13px; text-align:left; white-space:pre-wrap;"></div>
-    </div>
-    {% endif %}
-
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="{{ url_for('static', filename='js/home.js') }}"></script>
-  </body>
-</html>
+  </div>
+</div>
+{% endblock %}

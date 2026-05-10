@@ -1,96 +1,258 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tracked Certificates</title>
-    <link
-      rel="icon"
-      type="image/png"
-      href="{{ url_for('static', filename='tree.png') }}"
-    />
-  </head>
-  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-    <div style="max-width:900px; margin:24px auto; padding:0 16px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <h1 style="margin:0; font-size:20px;">Theo dõi chứng nhận (upload)</h1>
-        <button type="button" id="back-home-btn" style="padding:8px 12px; font-size:14px; cursor:pointer;">Về trang chủ</button>
-      </div>
+{% extends "base.html" %} {% block title %}Tracked Certificates - GoodCA{%
+endblock %} {% block extra_css %}
+<style>
+  .page-wrapper {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 20px;
+    width: 100%;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+  }
 
-      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
-        <form id="upload-cert-form">
-          <div style="margin-bottom:12px;">
-            <label for="certificate_file" style="display:block; margin-bottom:6px; font-size:14px;">Upload chứng nhận (.pem/.crt/.cer/.der)</label>
-            <input
-              type="file"
-              id="certificate_file"
-              name="certificate_file"
-              accept=".pem,.crt,.cer,.der,application/x-x509-ca-cert,application/pkix-cert"
-              style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
-              required
-            />
-            <div style="margin-top:6px; font-size:12px; color:#6b7280;">
-              Hệ thống chỉ dùng file này để parse thông tin (CN/Owner/Valid) và lưu để bạn theo dõi.
-            </div>
-          </div>
+  /* Nút bấm */
+  .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+  }
+  .btn-secondary:hover {
+    background: #e5e7eb;
+  }
+  .btn-primary {
+    background: #6366f1;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover {
+    background: #4f46e5;
+  }
 
-          <button type="submit" style="padding:8px 16px; font-size:14px; cursor:pointer;">Upload</button>
-        </form>
-      </div>
+  /* Thẻ (Cards) */
+  .dashboard-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    margin-bottom: 24px;
+  }
+  .card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+    margin-top: 0;
+    margin-bottom: 8px;
+  }
 
-      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
-        <h2 style="margin:0 0 12px 0; font-size:16px;">Danh sách đã theo dõi</h2>
-        <div style="margin:-6px 0 12px 0; font-size:12px; color:#6b7280;">
-          Ghi chú: cột <b>Chủ sở hữu (O)</b> là <b>Subject O</b>. Bên cấp chứng nhận là <b>Issuer</b> (issuer_dn).
+  /* Form */
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+  .form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #1f2937;
+    transition: all 0.2s;
+    box-sizing: border-box;
+    background: white;
+  }
+  .form-control:focus {
+    border-color: #6366f1;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+  .form-text {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 6px;
+  }
+
+  /* Bảng dữ liệu */
+  .table-responsive {
+    overflow-x: auto;
+    width: 100%;
+    margin-top: 16px;
+  }
+  .custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  .custom-table th {
+    background-color: #f9fafb;
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  .custom-table td {
+    padding: 12px 16px;
+    font-size: 0.875rem;
+    color: #4b5563;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  .custom-table tbody tr:hover {
+    background-color: #f9fafb;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+    font-size: 0.95rem;
+  }
+
+  /* Nhãn trạng thái (Badges) */
+  .badge {
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+    white-space: nowrap;
+  }
+  .badge-valid {
+    background-color: #d1fae5;
+    color: #065f46;
+  }
+  .badge-expired {
+    background-color: #fee2e2;
+    color: #991b1b;
+  }
+  .badge-pending {
+    background-color: #f3f4f6;
+    color: #4b5563;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <h1 class="page-title">Theo dõi chứng nhận (Upload)</h1>
+    <a href="/" class="btn-secondary">← Về trang chủ</a>
+  </div>
+
+  <div class="dashboard-card">
+    <form id="upload-cert-form">
+      <div class="form-group">
+        <label for="certificate_file" class="form-label"
+          >Tải lên chứng nhận (.pem, .crt, .cer, .der)</label
+        >
+        <input
+          type="file"
+          id="certificate_file"
+          name="certificate_file"
+          class="form-control"
+          accept=".pem,.crt,.cer,.der,application/x-x509-ca-cert,application/pkix-cert"
+          required
+        />
+        <div class="form-text">
+          Hệ thống chỉ dùng file này để trích xuất thông tin (CN / Owner / Valid
+          To) và lưu lại để bạn tiện theo dõi trạng thái.
         </div>
-
-        {% if not items or items|length == 0 %}
-          <div style="font-size:14px;">Chưa có chứng nhận nào được upload.</div>
-        {% else %}
-          <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-              <thead>
-                <tr>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">ID</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Domain (CN)</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Chủ sở hữu (Subject O)</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Valid To</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Trạng thái</th>
-                  <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Fingerprint</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for c in items %}
-                  <tr>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">{{ c.id }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ c.domain_name or '' }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px;">{{ c.owner_name or '' }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">{{ c.valid_to }}</td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; white-space:nowrap;">
-                      {% if c.status == 'valid' %}
-                        Còn hiệu lực
-                      {% elif c.status == 'expired' %}
-                        Hết hạn
-                      {% else %}
-                        Chưa hiệu lực
-                      {% endif %}
-                    </td>
-                    <td style="border-bottom:1px solid #f3f4f6; padding:8px; font-family:monospace; font-size:12px;">{{ c.fingerprint_sha256 }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% endif %}
       </div>
+      <button type="submit" class="btn-primary">Tải lên chứng nhận</button>
+    </form>
+  </div>
+
+  <div class="dashboard-card">
+    <h2 class="card-title">Danh sách chứng nhận đã theo dõi</h2>
+    <div class="form-text" style="margin-bottom: 16px">
+      Ghi chú: Cột <b>Chủ sở hữu (O)</b> tương ứng với <b>Subject O</b>. Bên cấp
+      chứng nhận là <b>Issuer</b>.
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="{{ url_for('static', filename='js/uploaded_certificates.js') }}"></script>
-    <script>
-      document.getElementById('back-home-btn')?.addEventListener('click', () => {
-        window.location.href = '/';
-      });
-    </script>
-  </body>
-</html>
+    {% if not items or items|length == 0 %}
+    <div class="empty-state">
+      <p>Bạn chưa tải lên chứng nhận nào để theo dõi.</p>
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Domain (CN)</th>
+            <th>Chủ sở hữu (O)</th>
+            <th>Valid To (Hạn mức)</th>
+            <th>Trạng thái</th>
+            <th>Fingerprint (SHA-256)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in items %}
+          <tr>
+            <td style="font-weight: 600; color: #111827">#{{ c.id }}</td>
+            <td>{{ c.domain_name or 'N/A' }}</td>
+            <td>{{ c.owner_name or 'N/A' }}</td>
+            <td style="white-space: nowrap">{{ c.valid_to }}</td>
+            <td>
+              {% if c.status == 'valid' %}
+              <span class="badge badge-valid">Còn hiệu lực</span>
+              {% elif c.status == 'expired' %}
+              <span class="badge badge-expired">Hết hạn</span>
+              {% else %}
+              <span class="badge badge-pending">Chưa hiệu lực</span>
+              {% endif %}
+            </td>
+            <td
+              style="
+                font-family: monospace;
+                font-size: 0.75rem;
+                color: #6b7280;
+                max-width: 200px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              "
+              title="{{ c.fingerprint_sha256 }}"
+            >
+              {{ c.fingerprint_sha256 }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{{ url_for('static', filename='js/uploaded_certificates.js') }}"></script>
+{% endblock %}

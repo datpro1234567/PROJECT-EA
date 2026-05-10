@@ -1,68 +1,143 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Revoke Certificate</title>
-    <link
-      rel="icon"
-      type="image/png"
-      href="{{ url_for('static', filename='tree.png') }}"
-    />
-  </head>
-  <body style="margin:0; padding:0; background-color:#ffffff; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-    <div style="max-width:720px; margin:24px auto; padding:0 16px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <h1 style="margin:0; font-size:20px;">Yêu cầu thu hồi chứng chỉ</h1>
-        <button type="button" id="back-home-btn" style="padding:8px 12px; font-size:14px; cursor:pointer;">Về trang chủ</button>
-      </div>
+{% extends "base.html" %} {% block title %}Revoke Certificate - GoodCA{%
+endblock %} {% block extra_css %}
+<style>
+  .page-wrapper {
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 0 20px;
+    width: 100%;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+  }
+  .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+  }
+  .btn-secondary:hover {
+    background: #e5e7eb;
+  }
+  .dashboard-card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+  }
+  .form-group {
+    margin-bottom: 20px;
+  }
+  .form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+  .form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #1f2937;
+    transition: all 0.2s;
+    box-sizing: border-box;
+  }
+  .form-control:focus {
+    border-color: #6366f1;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+  .btn-danger {
+    background: #ef4444;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <h1 class="page-title">Yêu cầu thu hồi chứng chỉ</h1>
+    <a href="/" class="btn-secondary">← Về trang chủ</a>
+  </div>
 
-      <div style="margin-top:16px; padding:16px; border:1px solid #e5e7eb; border-radius:8px;">
-        {% if not certificates or certificates|length == 0 %}
-          <div style="font-size:14px;">
-            Bạn chưa có chứng chỉ nào ở trạng thái <b>issued</b> để yêu cầu thu hồi.
-          </div>
-        {% else %}
-          <form id="revoke-certificate-form">
-            <div style="margin-bottom:12px;">
-              <label for="certificate_id" style="display:block; margin-bottom:6px; font-size:14px;">Chọn chứng chỉ</label>
-              <select
-                id="certificate_id"
-                name="certificate_id"
-                style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;"
-                required
-              >
-                {% for c in certificates %}
-                  <option value="{{ c.certificate_id }}">
-                    Cert ID {{ c.certificate_id }}{% if c.domain_name %} - {{ c.domain_name }}{% endif %}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-
-            <div style="margin-bottom:16px;">
-              <label for="reason" style="display:block; margin-bottom:6px; font-size:14px;">Lý do (tuỳ chọn)</label>
-              <textarea
-                id="reason"
-                name="reason"
-                rows="5"
-                placeholder="Ví dụ: lộ private key, thay domain..."
-                style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px; font-family:system-ui; font-size:13px;"
-              ></textarea>
-            </div>
-
-            <button type="submit" style="padding:8px 16px; font-size:14px; cursor:pointer;">Gửi yêu cầu thu hồi</button>
-          </form>
-        {% endif %}
-      </div>
+  <div class="dashboard-card">
+    {% if not certificates or certificates|length == 0 %}
+    <div class="empty-state">
+      <p>
+        Bạn chưa có chứng chỉ nào ở trạng thái <b>issued</b> để yêu cầu thu hồi.
+      </p>
     </div>
+    {% else %}
+    <form id="revoke-certificate-form">
+      <div class="form-group">
+        <label for="certificate_id" class="form-label"
+          >Chọn chứng chỉ cần thu hồi</label
+        >
+        <select
+          id="certificate_id"
+          name="certificate_id"
+          class="form-control"
+          required
+        >
+          {% for c in certificates %}
+          <option value="{{ c.certificate_id }}">
+            Cert ID {{ c.certificate_id }}{% if c.domain_name %} - {{
+            c.domain_name }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="{{ url_for('static', filename='js/revoke_certificate.js') }}"></script>
-    <script>
-      document.getElementById('back-home-btn')?.addEventListener('click', () => {
-        window.location.href = '/';
-      });
-    </script>
-  </body>
-</html>
+      <div class="form-group">
+        <label for="reason" class="form-label">Lý do thu hồi (tuỳ chọn)</label>
+        <textarea
+          id="reason"
+          name="reason"
+          class="form-control"
+          rows="5"
+          placeholder="Ví dụ: Lộ private key, thay đổi tên miền, ngừng hoạt động..."
+        ></textarea>
+      </div>
+
+      <button type="submit" class="btn-danger">Gửi yêu cầu thu hồi</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{{ url_for('static', filename='js/revoke_certificate.js') }}"></script>
+{% endblock %}

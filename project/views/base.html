@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Good CA{% endblock %}</title>
+
+    <link rel="icon" href="/static/tree.png" type="image/png" />
+
+    <!-- Bootstrap CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"
+    />
+
+    <!-- Font Awesome -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+
+    <!-- Custom CSS - SỬA LỖI Ở ĐÂY -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+
+    {% block extra_css %}{% endblock %}
+  </head>
+
+  <body class="{% block body_class %}{% endblock %}">
+    <!-- Navbar -->
+    <nav class="navbar-custom">
+      <a href="/" class="nav-brand">
+        <img
+          src="{{ url_for('static', filename='tree.png') }}"
+          alt="Logo"
+          class="logo-img"
+        />
+        <span>GoodCA</span>
+      </a>
+
+      <div class="nav-right">
+        <div class="nav-links">
+          <a href="/">Trang chủ</a>
+        </div>
+
+        <div class="nav-auth">
+          <a href="{{ url_for('auth.view_signin') }}" class="btn-nav btn-signin"
+            >Đăng nhập</a
+          >
+          <a href="{{ url_for('auth.view_signup') }}" class="btn-nav btn-signup"
+            >Đăng ký</a
+          >
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    {% block layout_wrapper %}
+    <div class="container mt-4">{% block content %}{% endblock %}</div>
+    {% endblock %}
+
+    <!-- Footer -->
+    <footer id="main-footer" class="mt-auto py-3 bg-light text-center">
+      <p class="mb-0 text-muted">
+        &copy; 2025 Code Practice Platform. Software Engineering Project.
+      </p>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Custom JS - SỬA LỖI Ở ĐÂY -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>
